@@ -16,11 +16,17 @@ import com.intellij.execution.configurations.RunnerSettings
 import com.intellij.execution.ui.RunnerLayoutUi
 import com.intellij.execution.ui.layout.PlaceInGrid
 import com.intellij.icons.AllIcons
+import com.intellij.jarRepository.JarRepositoryManager
+import com.intellij.jarRepository.RemoteRepositoryDescription
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.libraries.ui.OrderRoot
 import com.intellij.ui.content.ContentManagerAdapter
 import com.intellij.ui.content.ContentManagerEvent
 import com.intellij.xdebugger.XDebugProcess
 import com.intellij.xdebugger.XDebuggerManager
 import com.intellij.xdebugger.XDebuggerManagerListener
+import org.jetbrains.idea.maven.aether.ArtifactKind
+import org.jetbrains.jps.model.library.JpsMavenRepositoryLibraryDescriptor
 
 /**
  * Installs coroutines debug agent and coroutines tab if `kotlinx.coroutines.debug` dependency is found
@@ -96,5 +102,14 @@ class CoroutinesDebugConfigurationExtension : RunConfigurationExtension() {
                 }
             }
         }, content)
+    }
+
+    @Suppress("UNUSED") // not sure will it be needed
+    fun downloadDebugDependency(project: Project, version: String): List<OrderRoot>? {
+        val description = JpsMavenRepositoryLibraryDescriptor("org.jetbrains.kotlinx", "kotlinx-coroutines-debug", version)
+        return JarRepositoryManager.loadDependenciesSync(
+            project, description, setOf(ArtifactKind.ARTIFACT),
+            listOf(RemoteRepositoryDescription.MAVEN_CENTRAL), null
+        )
     }
 }

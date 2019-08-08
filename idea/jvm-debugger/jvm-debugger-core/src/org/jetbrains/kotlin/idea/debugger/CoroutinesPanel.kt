@@ -8,6 +8,7 @@
 package org.jetbrains.kotlin.idea.debugger
 
 import com.intellij.debugger.DebuggerContext
+import com.intellij.debugger.DebuggerInvocationUtil
 import com.intellij.debugger.DebuggerManagerEx
 import com.intellij.debugger.actions.DebuggerActions
 import com.intellij.debugger.actions.GotoFrameSourceAction
@@ -29,6 +30,7 @@ import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionPopupMenu
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.PlatformDataKeys
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
@@ -108,12 +110,20 @@ class CoroutinesPanel(project: Project, stateManager: DebuggerStateManager) : De
                         context.debugProcess?.managerThread?.schedule(object : DebuggerCommandImpl() {
                             override fun action() {
                                 view.buildTreeAndRestoreState(pos, context, descriptor)
+                                ApplicationManager.getApplication()
+                                    .invokeLater({
+                                                     pos.createNavigatable(project).navigate(true)
+                                                 }, ModalityState.stateForComponent(this@CoroutinesPanel))
                             }
                         })
                         return true
                     }
                     is StackFrameDescriptor -> {
                         GotoFrameSourceAction.doAction(dataContext)
+                        return true
+                    }
+                    is CoroutinesDebuggerTree.AsyncStackFrameDescriptor -> {
+                        // TODO somehow view variables
                         return true
                     }
                     else -> return true
