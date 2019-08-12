@@ -124,7 +124,7 @@ class CoroutinesDebuggerTree(project: Project) : DebuggerTree(project) {
                     )
                     async?.forEach {
                         children.add(
-                            createAsyncFrameDescriptor(     // TODO make it possible to watch variables
+                            createAsyncFrameDescriptor(
                                 descriptor,
                                 evalContext,
                                 it
@@ -176,7 +176,7 @@ class CoroutinesDebuggerTree(project: Project) : DebuggerTree(project) {
         return myNodeManager.createNode(
             myNodeManager.getDescriptor(
                 descriptor,
-                CoroutineStackFrameData(descriptor.state, StackTraceElement(frame.path(), frame.method(), null, frame.line()))
+                CoroutineStackFrameData(descriptor.state, frame)
             ), evalContext
         )
     }
@@ -303,14 +303,24 @@ class CoroutinesDebuggerTree(project: Project) : DebuggerTree(project) {
         }
     }
 
-    class CoroutineStackFrameData(val state: CoroutineState, val frame: StackTraceElement, val frameItem: StackFrameItem? = null) :
+    class CoroutineStackFrameData private constructor(val state: CoroutineState) :
         DescriptorData<NodeDescriptorImpl>() {
+        private var frame: StackTraceElement? = null
+        private var frameItem: StackFrameItem? = null
 
-        override fun hashCode() = frame.hashCode()
+        constructor(state: CoroutineState, frame: StackTraceElement) : this(state) {
+            this.frame = frame
+        }
+
+        constructor(state: CoroutineState, frameItem: StackFrameItem) : this(state) {
+            this.frameItem = frameItem
+        }
+
+        override fun hashCode() = frame?.hashCode() ?: frameItem.hashCode()
 
         override fun equals(other: Any?): Boolean {
             return if (other is CoroutineStackFrameData) {
-                other.frame == frame
+                other.frame == frame && other.frameItem == frameItem
             } else false
         }
 
@@ -318,7 +328,7 @@ class CoroutinesDebuggerTree(project: Project) : DebuggerTree(project) {
          * Returns [EmptyStackFrameDescriptor] or [SuspendStackFrameDescriptor] according to current frame
          */
         override fun createDescriptorImpl(project: Project): NodeDescriptorImpl {
-            if (frameItem != null) return AsyncStackFrameDescriptor(frameItem)
+            val frame = frame ?: return AsyncStackFrameDescriptor(state, frameItem!!)
             // check whether last fun is suspend fun
             val context = DebuggerManagerEx.getInstanceEx(project).context.createExecutionContext()
             val clazz = context?.findClass(frame.className) as ClassType
@@ -333,7 +343,7 @@ class CoroutinesDebuggerTree(project: Project) : DebuggerTree(project) {
             else EmptyStackFrameDescriptor(frame)
         }
 
-        override fun getDisplayKey(): DisplayKey<NodeDescriptorImpl> = SimpleDisplayKey(frame)
+        override fun getDisplayKey(): DisplayKey<NodeDescriptorImpl> = SimpleDisplayKey(state)
     }
 
     /**
@@ -354,7 +364,7 @@ class CoroutinesDebuggerTree(project: Project) : DebuggerTree(project) {
         override fun isExpandable() = false
     }
 
-    class AsyncStackFrameDescriptor(val frame: StackFrameItem) : NodeDescriptorImpl() {
+    class AsyncStackFrameDescriptor(val state: CoroutineState, val frame: StackFrameItem) : NodeDescriptorImpl() {
         override fun calcRepresentation(context: EvaluationContextImpl?, labelListener: DescriptorLabelListener?): String {
             return with(frame) {
                 val pack = path().substringBeforeLast(".", "")

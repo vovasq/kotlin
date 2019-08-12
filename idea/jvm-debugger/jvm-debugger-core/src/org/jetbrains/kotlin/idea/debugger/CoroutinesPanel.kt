@@ -8,11 +8,10 @@
 package org.jetbrains.kotlin.idea.debugger
 
 import com.intellij.debugger.DebuggerContext
-import com.intellij.debugger.DebuggerInvocationUtil
 import com.intellij.debugger.DebuggerManagerEx
 import com.intellij.debugger.actions.DebuggerActions
 import com.intellij.debugger.actions.GotoFrameSourceAction
-import com.intellij.debugger.engine.JavaValue
+import com.intellij.debugger.engine.*
 import com.intellij.debugger.engine.evaluation.EvaluateException
 import com.intellij.debugger.engine.evaluation.EvaluationContextImpl
 import com.intellij.debugger.engine.events.DebuggerCommandImpl
@@ -20,6 +19,7 @@ import com.intellij.debugger.impl.DebuggerContextImpl
 import com.intellij.debugger.impl.DebuggerContextListener
 import com.intellij.debugger.impl.DebuggerSession
 import com.intellij.debugger.impl.DebuggerStateManager
+import com.intellij.debugger.jdi.ThreadReferenceProxyImpl
 import com.intellij.debugger.ui.impl.DebuggerTreePanel
 import com.intellij.debugger.ui.impl.watch.DebuggerTree
 import com.intellij.debugger.ui.impl.watch.DebuggerTreeNodeImpl
@@ -41,12 +41,9 @@ import com.intellij.ui.ScrollPaneFactory
 import com.intellij.util.Alarm
 import com.intellij.xdebugger.XDebuggerUtil
 import com.intellij.xdebugger.XSourcePosition
-import com.intellij.xdebugger.frame.*
-import com.intellij.xdebugger.impl.XDebugSessionImpl
-import com.intellij.xdebugger.impl.frame.XWatchesViewImpl
+import com.intellij.xdebugger.frame.XExecutionStack
+import com.intellij.xdebugger.frame.XNamedValue
 import com.intellij.xdebugger.impl.ui.DebuggerUIUtil
-import com.intellij.xdebugger.impl.ui.tree.nodes.XDebuggerTreeNode
-import com.intellij.xdebugger.impl.ui.tree.nodes.XValueContainerNode
 import com.sun.jdi.*
 import org.jetbrains.annotations.NonNls
 import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
@@ -87,7 +84,6 @@ class CoroutinesPanel(project: Project, stateManager: DebuggerStateManager) : De
     @Suppress("SameParameterValue")
     private fun installAction(tree: JTree, actionName: String): () -> Unit {
         val psiFacade = JavaPsiFacade.getInstance(project)
-
         val listener = object : DoubleClickListener() {
             override fun onDoubleClick(e: MouseEvent): Boolean {
                 val location = tree.getPathForLocation(e.x, e.y)
@@ -95,27 +91,9 @@ class CoroutinesPanel(project: Project, stateManager: DebuggerStateManager) : De
 
                 val dataContext = DataManager.getInstance().getDataContext(tree)
                 val context = DebuggerManagerEx.getInstanceEx(project).context
-                val view = (context.debuggerSession!!.xDebugSession as XDebugSessionImpl)
-                    .sessionTab!!.watchesView as XWatchesViewImpl
-
                 when (val descriptor = location.userObject) {
                     is CoroutinesDebuggerTree.SuspendStackFrameDescriptor -> {
-                        val frame = descriptor.frame
-                        val psiClass = psiFacade.findClass(
-                            frame.className.substringBefore("$"),
-                            GlobalSearchScope.everythingScope(project)
-                        )
-                        val classFile = psiClass?.containingFile?.virtualFile
-                        val pos = XDebuggerUtil.getInstance().createPosition(classFile, frame.lineNumber) ?: return false
-                        context.debugProcess?.managerThread?.schedule(object : DebuggerCommandImpl() {
-                            override fun action() {
-                                view.buildTreeAndRestoreState(pos, context, descriptor)
-                                ApplicationManager.getApplication()
-                                    .invokeLater({
-                                                     pos.createNavigatable(project).navigate(true)
-                                                 }, ModalityState.stateForComponent(this@CoroutinesPanel))
-                            }
-                        })
+                        buildSuspendStackFrameChildren(descriptor, psiFacade)
                         return true
                     }
                     is StackFrameDescriptor -> {
@@ -123,12 +101,11 @@ class CoroutinesPanel(project: Project, stateManager: DebuggerStateManager) : De
                         return true
                     }
                     is CoroutinesDebuggerTree.AsyncStackFrameDescriptor -> {
-                        // TODO somehow view variables
+                        buildAsyncStackFrameChildren(descriptor, context.debugProcess ?: return false)
                         return true
                     }
                     else -> return true
                 }
-
             }
         }
         listener.installOn(tree)
@@ -139,35 +116,66 @@ class CoroutinesPanel(project: Project, stateManager: DebuggerStateManager) : De
         return disposable
     }
 
-    fun XWatchesViewImpl.buildTreeAndRestoreState(
-        pos: XSourcePosition,
-        context: DebuggerContextImpl,
-        descriptor: CoroutinesDebuggerTree.SuspendStackFrameDescriptor
-    ) {
-        tree.sourcePosition = pos
-        createNewRootNode(context, descriptor)
+    private fun buildSuspendStackFrameChildren(descriptor: CoroutinesDebuggerTree.SuspendStackFrameDescriptor, psiFacade: JavaPsiFacade) {
+        val frame = descriptor.frame
+        val psiClass = psiFacade.findClass(
+            frame.className.substringBefore("$"), // find outer class, for which psi exists
+            GlobalSearchScope.everythingScope(project)
+        )
+        val classFile = psiClass?.containingFile?.virtualFile
+        val pos = XDebuggerUtil.getInstance().createPosition(classFile, frame.lineNumber) ?: return
+        context.debugProcess?.managerThread?.schedule(object : DebuggerCommandImpl() {
+            override fun action() {
+                val (stack, stackFrame) = createFakeStackFrame(descriptor, pos) ?: return
+                ApplicationManager.getApplication() // navigate in editor
+                    .invokeLater({
+                                     context.debuggerSession?.xDebugSession?.setCurrentStackFrame(stack, stackFrame)
+                                 }, ModalityState.stateForComponent(this@CoroutinesPanel))
+            }
+        })
     }
 
-    private fun XWatchesViewImpl.createNewRootNode(
-        context: DebuggerContextImpl,
-        descriptor: CoroutinesDebuggerTree.SuspendStackFrameDescriptor
-    ): XDebuggerTreeNode {
-        return object : XValueContainerNode<XValueContainer>(tree, null, false, object : XValueContainer() {}) {}.apply {
-            this@createNewRootNode.tree.setRoot(this, false)
-            val execContext = context.createExecutionContext() ?: return@apply
-            val debugMetadataKtType = execContext
-                .findClass("kotlin.coroutines.jvm.internal.DebugMetadataKt") as ClassType
-            val continuation = getContinuation(descriptor.state, descriptor.frame, execContext)
-            val vars = getSpilledVariables(
-                continuation ?: return@apply,
-                debugMetadataKtType, execContext
-            )
-            val children = XValueChildrenList()
-            vars?.forEach {
-                children.add(it)
+    private fun buildAsyncStackFrameChildren(descriptor: CoroutinesDebuggerTree.AsyncStackFrameDescriptor, process: DebugProcessImpl) {
+        process.managerThread?.schedule(object : DebuggerCommandImpl() {
+            override fun action() {
+                val proxy = ThreadReferenceProxyImpl(
+                    process.virtualMachineProxy,
+                    descriptor.state.thread // is not null because it's a running coroutine
+                )
+                val threadSuspendContext =
+                    SuspendManagerUtil.findContextByThread(process.suspendManager, proxy) ?: return
+                val executionStack = JavaExecutionStack(proxy, process, threadSuspendContext.thread == proxy)
+                executionStack.initTopFrame()
+                val frame = descriptor.frame.createFrame(process)
+                DebuggerUIUtil.invokeLater {
+                    context.debuggerSession?.xDebugSession?.setCurrentStackFrame(
+                        executionStack,
+                        frame
+                    )
+                }
             }
-            this.addChildren(children, true)
-        }
+        })
+    }
+
+    private fun createFakeStackFrame(
+        descriptor: CoroutinesDebuggerTree.SuspendStackFrameDescriptor,
+        pos: XSourcePosition
+    ): Pair<XExecutionStack, FakeStackFrame>? {
+        val proxy = context.suspendContext?.thread ?: return null
+        val threadSuspendContext =
+            SuspendManagerUtil.findContextByThread(context.debugProcess!!.suspendManager, proxy)
+        val executionStack =
+            JavaExecutionStack(proxy, context.debugProcess!!, threadSuspendContext!!.thread == proxy)
+        executionStack.initTopFrame()
+        val execContext = context.createExecutionContext() ?: return null
+        val continuation = getContinuation(descriptor.state, descriptor.frame, execContext) ?: return null
+        val debugMetadataKtType = execContext
+            .findClass("kotlin.coroutines.jvm.internal.DebugMetadataKt") as ClassType
+        val vars = getSpilledVariables(
+            continuation,
+            debugMetadataKtType, execContext
+        ) ?: return null
+        return executionStack to FakeStackFrame(proxy.frame(0), vars, pos)
     }
 
     /**
