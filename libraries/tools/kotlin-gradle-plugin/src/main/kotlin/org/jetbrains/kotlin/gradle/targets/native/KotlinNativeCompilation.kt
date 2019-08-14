@@ -3,7 +3,7 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-@file:Suppress("PackageDirectoryMismatch") // Old package for compatibility
+@file:Suppress("PackageDirectoryMismatch", "Deprecation") // Old package for compatibility
 package org.jetbrains.kotlin.gradle.plugin.mpp
 
 import groovy.lang.Closure
@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilationWithResources
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
+import org.jetbrains.kotlin.gradle.utils.SingleWarningPerBuild
 import org.jetbrains.kotlin.gradle.utils.lowerCamelCaseName
 import java.util.concurrent.Callable
 
@@ -52,9 +53,28 @@ class KotlinNativeCompilation(
         }
 
     // Native-specific DSL.
-    var extraOpts = mutableListOf<String>()
+    private fun showDeprecationWarning() = SingleWarningPerBuild.show(
+        project,
+        "The compilation.extraOpts method used in this build is deprecated. Use compilation.kotlinOptions.freeCompilerArgs instead."
+    )
 
+    internal var extraOptsNoWarn: MutableList<String> = mutableListOf()
+
+    @Deprecated("Use kotlinOptions.freeCompilerArgs instead", ReplaceWith("kotlinOptions.freeCompilerArgs"))
+    var extraOpts: MutableList<String>
+        get() {
+            showDeprecationWarning()
+            return extraOptsNoWarn
+        }
+        set(value) {
+            showDeprecationWarning()
+            extraOptsNoWarn = value
+        }
+
+    @Deprecated("Use kotlinOptions.freeCompilerArgs instead", ReplaceWith("kotlinOptions.freeCompilerArgs"))
     fun extraOpts(vararg values: Any) = extraOpts(values.toList())
+
+    @Deprecated("Use kotlinOptions.freeCompilerArgs instead", ReplaceWith("kotlinOptions.freeCompilerArgs"))
     fun extraOpts(values: List<Any>) {
         extraOpts.addAll(values.map { it.toString() })
     }
