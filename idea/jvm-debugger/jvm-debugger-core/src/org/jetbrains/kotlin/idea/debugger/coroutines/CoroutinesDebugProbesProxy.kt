@@ -2,7 +2,7 @@
  * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
-package org.jetbrains.kotlin.idea.debugger
+package org.jetbrains.kotlin.idea.debugger.coroutines
 
 import com.intellij.debugger.engine.DebugProcess
 import com.intellij.openapi.util.Key
@@ -39,7 +39,8 @@ object CoroutinesDebugProbesProxy {
     fun dumpCoroutines(context: ExecutionContext): Either<Throwable, List<CoroutineState>> {
         try {
             if (context.debugProcess.references == null) {
-                context.debugProcess.references = ProcessReferences(context)
+                context.debugProcess.references =
+                    ProcessReferences(context)
             }
             val refs = context.debugProcess.references!! // already instantiated if it's null
 
@@ -52,9 +53,13 @@ object CoroutinesDebugProbesProxy {
                 val elem = context.invokeMethod(infoList, refs.getElement, listOf(index)) as ObjectReference
                 val name = getName(context, elem, refs)
                 val state = getState(context, elem, refs)
-                val thread = getLastObservedThread(elem, refs.threadRef)
+                val thread =
+                    getLastObservedThread(elem, refs.threadRef)
                 CoroutineState(
-                    name, state, thread, getStackTrace(elem, refs, context),
+                    name,
+                    CoroutineState.State.valueOf(state),
+                    thread,
+                    getStackTrace(elem, refs, context),
                     elem.getValue(refs.continuation) as? ObjectReference
                 )
             })
@@ -121,7 +126,7 @@ object CoroutinesDebugProbesProxy {
             ) as ObjectReference
             val clazz = (frame.getValue(refs.className) as StringReference).value()
 
-            if (clazz.contains(DEBUG_PACKAGE)) break // cut off debug intrinsic stacktrace
+            if (clazz.contains("$DEBUG_PACKAGE.DebugProbes")) break // cut off debug intrinsic stacktrace
             list.add(
                 0, // add in the beginning
                 StackTraceElement(

@@ -3,12 +3,12 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.idea.debugger
+package org.jetbrains.kotlin.idea.debugger.coroutines
 
 import com.intellij.codeInsight.highlighting.HighlightManager
 import com.intellij.execution.ui.ConsoleView
 import com.intellij.icons.AllIcons
-import com.intellij.icons.AllIcons.Debugger.ThreadStates.Idle
+import com.intellij.icons.AllIcons.Debugger.ThreadStates.Daemon_sign
 import com.intellij.ide.DataManager
 import com.intellij.ide.ExporterToTextFile
 import com.intellij.ide.ui.UISettings
@@ -31,6 +31,7 @@ import com.intellij.ui.*
 import com.intellij.ui.components.JBList
 import com.intellij.unscramble.AnalyzeStacktraceUtil
 import com.intellij.util.PlatformIcons
+import com.intellij.util.ui.EmptyIcon
 import org.jetbrains.annotations.NonNls
 import java.awt.BorderLayout
 import java.awt.Color
@@ -176,10 +177,10 @@ class CoroutineDumpPanel(project: Project, consoleView: ConsoleView, toolbarActi
     override fun getData(dataId: String): Any? = if (PlatformDataKeys.EXPORTER_TO_TEXT_FILE.`is`(dataId)) exporterToTextFile else null
 
     private fun getCoroutineStateIcon(state: CoroutineState): Icon {
-        return when (state.state.toUpperCase()) {
-            "RUNNING" -> AllIcons.Actions.Resume
-            "SUSPENDED" -> AllIcons.Actions.Pause
-            else -> Idle
+        return when (state.state) {
+            CoroutineState.State.RUNNING -> LayeredIcon(AllIcons.Actions.Resume, Daemon_sign)
+            CoroutineState.State.SUSPENDED -> AllIcons.Actions.Pause
+            else -> EmptyIcon.create(6)
         }
     }
 
@@ -199,9 +200,9 @@ class CoroutineDumpPanel(project: Project, consoleView: ConsoleView, toolbarActi
             icon = getCoroutineStateIcon(state)
             val attrs = getAttributes(state)
             append(state.name + " (", attrs)
-            var detail: String? = state.state
+            var detail: String? = state.state.name
             if (detail == null) {
-                detail = state.state
+                detail = state.state.name
             }
             if (detail.length > 30) {
                 detail = detail.substring(0, 30) + "..."

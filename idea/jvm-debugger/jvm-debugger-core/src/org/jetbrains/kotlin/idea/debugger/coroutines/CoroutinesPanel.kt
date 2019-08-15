@@ -5,15 +5,13 @@
 
 @file:Suppress("DEPRECATION")
 
-package org.jetbrains.kotlin.idea.debugger
+package org.jetbrains.kotlin.idea.debugger.coroutines
 
-import com.intellij.debugger.DebuggerContext
 import com.intellij.debugger.DebuggerManagerEx
 import com.intellij.debugger.actions.DebuggerActions
 import com.intellij.debugger.actions.GotoFrameSourceAction
-import com.intellij.debugger.engine.*
-import com.intellij.debugger.engine.evaluation.EvaluateException
-import com.intellij.debugger.engine.evaluation.EvaluationContextImpl
+import com.intellij.debugger.engine.DebugProcessImpl
+import com.intellij.debugger.engine.JavaExecutionStack
 import com.intellij.debugger.engine.events.DebuggerCommandImpl
 import com.intellij.debugger.impl.DebuggerContextImpl
 import com.intellij.debugger.impl.DebuggerContextListener
@@ -23,7 +21,6 @@ import com.intellij.debugger.jdi.ThreadReferenceProxyImpl
 import com.intellij.debugger.ui.impl.DebuggerTreePanel
 import com.intellij.debugger.ui.impl.watch.DebuggerTree
 import com.intellij.debugger.ui.impl.watch.DebuggerTreeNodeImpl
-import com.intellij.debugger.ui.impl.watch.ValueDescriptorImpl
 import com.intellij.debugger.ui.tree.StackFrameDescriptor
 import com.intellij.ide.DataManager
 import com.intellij.openapi.actionSystem.ActionManager
@@ -42,11 +39,11 @@ import com.intellij.util.Alarm
 import com.intellij.xdebugger.XDebuggerUtil
 import com.intellij.xdebugger.XSourcePosition
 import com.intellij.xdebugger.frame.XExecutionStack
-import com.intellij.xdebugger.frame.XNamedValue
 import com.intellij.xdebugger.impl.ui.DebuggerUIUtil
-import com.sun.jdi.*
+import com.sun.jdi.ClassType
 import org.jetbrains.annotations.NonNls
-import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
+import org.jetbrains.kotlin.idea.debugger.FakeStackFrame
+import org.jetbrains.kotlin.idea.debugger.KotlinCoroutinesAsyncStackTraceProvider
 import org.jetbrains.kotlin.idea.debugger.evaluate.createExecutionContext
 import java.awt.BorderLayout
 import java.awt.event.MouseEvent
@@ -97,7 +94,7 @@ class CoroutinesPanel(project: Project, stateManager: DebuggerStateManager) : De
                         return true
                     }
                     is CoroutinesDebuggerTree.AsyncStackFrameDescriptor -> {
-                        buildAsyncStackFrameChildren(descriptor, context.debugProcess ?: return false) // TODO merge
+                        buildAsyncStackFrameChildren(descriptor, context.debugProcess ?: return false)
                         // TODO add creation to async
                         return true
                     }
@@ -201,8 +198,11 @@ class CoroutinesPanel(project: Project, stateManager: DebuggerStateManager) : De
         val debugMetadataKtType = execContext
             .findClass("kotlin.coroutines.jvm.internal.DebugMetadataKt") as ClassType
         val vars = with(KotlinCoroutinesAsyncStackTraceProvider()) {
-            KotlinCoroutinesAsyncStackTraceProvider
-                .AsyncStackTraceContext(execContext, aMethod, debugMetadataKtType)
+            KotlinCoroutinesAsyncStackTraceProvider.AsyncStackTraceContext(
+                execContext,
+                aMethod,
+                debugMetadataKtType
+            )
                 .getSpilledVariables(continuation)
         } ?: return null
         return executionStack to FakeStackFrame(descriptor, vars, pos)
@@ -246,7 +246,10 @@ class CoroutinesPanel(project: Project, stateManager: DebuggerStateManager) : De
             private fun reschedule() {
                 val session = context.debuggerSession
                 if (session != null && session.isAttached && !session.isPaused && !myUpdateLabelsAlarm.isDisposed) {
-                    myUpdateLabelsAlarm.addRequest(this, LABELS_UPDATE_DELAY_MS, ModalityState.NON_MODAL)
+                    myUpdateLabelsAlarm.addRequest(
+                        this,
+                        LABELS_UPDATE_DELAY_MS, ModalityState.NON_MODAL
+                    )
                 }
             }
 

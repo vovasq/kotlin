@@ -3,10 +3,11 @@
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
-package org.jetbrains.kotlin.idea.debugger
+package org.jetbrains.kotlin.idea.debugger.coroutines
 
 import com.sun.jdi.*
 import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
+import org.jetbrains.kotlin.idea.debugger.isSubtype
 
 /**
  * Represents state of a coroutine.
@@ -14,12 +15,12 @@ import org.jetbrains.kotlin.idea.debugger.evaluate.ExecutionContext
  */
 class CoroutineState(
     val name: String,
-    val state: String,
+    val state: State,
     val thread: ThreadReference? = null,
     val stackTrace: List<StackTraceElement>,
     val frame: ObjectReference?
 ) {
-    val isSuspended: Boolean = state == "SUSPENDED"
+    val isSuspended: Boolean = state == State.SUSPENDED
     val isEmptyStackTrace: Boolean by lazy { stackTrace.isEmpty() }
     val stringStackTrace: String by lazy {
         buildString {
@@ -65,12 +66,18 @@ class CoroutineState(
             (context.invokeMethod(trace, getLineNumber, emptyList()) as IntegerValue).value()
         }
 
-        while (continuation != null &&
-            continuation.type().isSubtype(baseType)
-            && (stackTraceElement.className != className() || stackTraceElement.lineNumber != lineNumber()) // continuation frame equals to the current
+        while (continuation != null && continuation.type().isSubtype(baseType)
+            && (stackTraceElement.className != className() || stackTraceElement.lineNumber != lineNumber())
         ) {
+            // while continuation is BaseContinuationImpl and it's frame equals to the current
             continuation = getNextFrame(continuation, context)
         }
         return if (continuation != null && continuation.type().isSubtype(baseType)) continuation else null
+    }
+
+    enum class State {
+        RUNNING,
+        SUSPENDED,
+        CREATED
     }
 }
