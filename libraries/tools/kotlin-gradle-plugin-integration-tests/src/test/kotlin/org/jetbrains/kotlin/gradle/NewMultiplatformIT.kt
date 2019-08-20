@@ -939,6 +939,19 @@ class NewMultiplatformIT : BaseGradleIT() {
         projectName: String,
         gradleVersionRequired: GradleVersionRequired = gradleVersion
     ) = with(transformProjectWithPluginsDsl(projectName, gradleVersionRequired, "new-mpp-native-binaries")) {
+
+        fun CompiledProject.checkCompilationCommandLine(outputKind: String, check: (String) -> Unit) {
+            output.lineSequence().filter {
+                it.contains("Run tool: konanc") && it.contains("-p $outputKind")
+            }.toList().also {
+                assertTrue(it.isNotEmpty())
+            }.forEach(check)
+        }
+
+        fun CompiledProject.checkFrameworkCompilationCommandLine(check: (String) -> Unit) = checkCompilationCommandLine("framework", check)
+        fun CompiledProject.checkExecutableCompilationCommandLine(check: (String) -> Unit) = checkCompilationCommandLine("program", check)
+        fun CompiledProject.checkLibraryCompilationCommandLine(check: (String) -> Unit) = checkCompilationCommandLine("library", check)
+
         val hostSuffix = nativeHostTargetName.capitalize()
         val binaries = mutableListOf(
             "debugExecutable" to "native-binary",
@@ -973,6 +986,8 @@ class NewMultiplatformIT : BaseGradleIT() {
 
         val binariesTasks = arrayOf("${nativeHostTargetName}MainBinaries", "${nativeHostTargetName}TestBinaries")
 
+        val compileTask = "compileKotlin$hostSuffix"
+
         // Check that all link and run tasks are generated.
         build(*binariesTasks) {
             assertSuccessful()
@@ -997,6 +1012,14 @@ class NewMultiplatformIT : BaseGradleIT() {
             assertSuccessful()
         }
 
+        // Check that kotlinOptions work fine for a compilation.
+        build(compileTask) {
+            assertSuccessful()
+            checkLibraryCompilationCommandLine {
+                assertTrue(it.contains("-verbose"))
+            }
+        }
+
         // Check that run tasks work fine and an entry point can be specified.
         build("runDebugExecutable$hostSuffix") {
             assertSuccessful()
@@ -1010,6 +1033,12 @@ class NewMultiplatformIT : BaseGradleIT() {
 
         build("runTest2ReleaseExecutable$hostSuffix") {
             assertSuccessful()
+            checkExecutableCompilationCommandLine {
+                assertTrue(it.contains("-tr"))
+                assertTrue(it.contains("-Xtime"))
+                // Check that kotlinOptions of the compilation don't affect the binary.
+                assertFalse(it.contains("-verbose"))
+            }
             assertTrue(output.contains("tests.foo"))
         }
 
@@ -1019,13 +1048,6 @@ class NewMultiplatformIT : BaseGradleIT() {
             assertTrue(output.contains("tests.foo"))
         }
 
-        fun CompiledProject.checkFrameworkCompilationCommandLine(check: (String) -> Unit) {
-            output.lineSequence().filter {
-                it.contains("Run tool: konanc") && it.contains("-p framework")
-            }.toList().also {
-                assertTrue(it.isNotEmpty())
-            }.forEach(check)
-        }
         if (HostManager.hostIsMac) {
 
             // Check dependency exporting and bitcode embedding in frameworks.
