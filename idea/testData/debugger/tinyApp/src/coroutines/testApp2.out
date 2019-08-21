@@ -1,0 +1,37 @@
+LineBreakpoint created at testApp2.kt:23
+Run Java
+Connected to the target VM
+testApp2.kt:23
+"coroutine#1", state: RUNNING
+	java.lang.Thread.getStackTrace(Thread.java:1559)
+	kotlinx.coroutines.debug.internal.DebugProbesImpl.enhanceStackTraceWithThreadDump(DebugProbesImpl.kt:172)
+	testApp2.TestApp2Kt.fun1(testApp2.kt:23)
+	testApp2.TestApp2Kt$main$coroutine1$1.invokeSuspend(testApp2.kt:8)
+		$this$launch
+	(Coroutine creation stacktrace.()
+	kotlin.coroutines.intrinsics.IntrinsicsKt__IntrinsicsJvmKt.createCoroutineUnintercepted(IntrinsicsJvm.kt:116)
+	kotlinx.coroutines.intrinsics.CancellableKt.startCoroutineCancellable(Cancellable.kt:25)
+	kotlinx.coroutines.BuildersKt.launch$default(Unknown Source)
+	testApp2.TestApp2Kt.main(testApp2.kt:7)
+	testApp2.TestApp2Kt.main(testApp2.kt)
+"coroutine#2", state: SUSPENDED
+	testApp2.TestApp2Kt$main$coroutine2$1.invokeSuspend(testApp2.kt:12)
+		$this$launch
+	(Coroutine creation stacktrace.()
+	kotlin.coroutines.intrinsics.IntrinsicsKt__IntrinsicsJvmKt.createCoroutineUnintercepted(IntrinsicsJvm.kt:116)
+	kotlinx.coroutines.intrinsics.CancellableKt.startCoroutineCancellable(Cancellable.kt:25)
+	kotlinx.coroutines.BuildersKt.launch$default(Unknown Source)
+	testApp2.TestApp2Kt.main(testApp2.kt:11)
+	testApp2.TestApp2Kt.main(testApp2.kt)
+"coroutine#3", state: SUSPENDED
+	testApp2.TestApp2Kt$main$1.invokeSuspend(testApp2.kt:15)
+		$this$runBlocking
+	(Coroutine creation stacktrace.()
+	kotlin.coroutines.intrinsics.IntrinsicsKt__IntrinsicsJvmKt.createCoroutineUnintercepted(IntrinsicsJvm.kt:116)
+	kotlinx.coroutines.intrinsics.CancellableKt.startCoroutineCancellable(Cancellable.kt:25)
+	kotlinx.coroutines.BuildersKt.runBlocking$default(Unknown Source)
+	testApp2.TestApp2Kt.main(testApp2.kt:14)
+	testApp2.TestApp2Kt.main(testApp2.kt)
+Disconnected from the target VM
+
+Process finished with exit code 0

@@ -23,10 +23,7 @@ import com.intellij.debugger.ui.impl.watch.DebuggerTree
 import com.intellij.debugger.ui.impl.watch.DebuggerTreeNodeImpl
 import com.intellij.debugger.ui.tree.StackFrameDescriptor
 import com.intellij.ide.DataManager
-import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.ActionPopupMenu
-import com.intellij.openapi.actionSystem.DefaultActionGroup
-import com.intellij.openapi.actionSystem.PlatformDataKeys
+import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.project.Project
@@ -42,7 +39,6 @@ import com.intellij.xdebugger.frame.XExecutionStack
 import com.intellij.xdebugger.impl.ui.DebuggerUIUtil
 import com.sun.jdi.ClassType
 import org.jetbrains.annotations.NonNls
-import org.jetbrains.kotlin.idea.debugger.FakeStackFrame
 import org.jetbrains.kotlin.idea.debugger.KotlinCoroutinesAsyncStackTraceProvider
 import org.jetbrains.kotlin.idea.debugger.evaluate.createExecutionContext
 import java.awt.BorderLayout
@@ -202,8 +198,7 @@ class CoroutinesPanel(project: Project, stateManager: DebuggerStateManager) : De
                 execContext,
                 aMethod,
                 debugMetadataKtType
-            )
-                .getSpilledVariables(continuation)
+            ).getSpilledVariables(continuation)
         } ?: return null
         return executionStack to FakeStackFrame(descriptor, vars, pos)
     }
@@ -280,10 +275,9 @@ class CoroutinesPanel(project: Project, stateManager: DebuggerStateManager) : De
         return CoroutinesDebuggerTree(project)
     }
 
-    // TODO
     override fun createPopupMenu(): ActionPopupMenu {
-        val group = ActionManager.getInstance().getAction(DebuggerActions.THREADS_PANEL_POPUP) as DefaultActionGroup
-        return ActionManager.getInstance().createActionPopupMenu(DebuggerActions.THREADS_PANEL_POPUP, group)
+        val group = EmptyActionGroup()
+        return ActionManager.getInstance().createActionPopupMenu("Debugger.CoroutinesPanelPopup", group)
     }
 
     override fun getData(dataId: String): Any? {

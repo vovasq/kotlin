@@ -6,8 +6,8 @@ package org.jetbrains.kotlin.idea.debugger.coroutines
 
 import com.intellij.debugger.DebuggerInvocationUtil
 import com.intellij.debugger.DebuggerManagerEx
+import com.intellij.debugger.actions.ThreadDumpAction
 import com.intellij.debugger.impl.DebuggerSession
-import com.intellij.debugger.ui.DebuggerContentInfo
 import com.intellij.execution.RunConfigurationExtension
 import com.intellij.execution.configurations.DebuggingRunnerData
 import com.intellij.execution.configurations.JavaParameters
@@ -15,9 +15,15 @@ import com.intellij.execution.configurations.RunConfigurationBase
 import com.intellij.execution.configurations.RunnerSettings
 import com.intellij.execution.ui.RunnerLayoutUi
 import com.intellij.execution.ui.layout.PlaceInGrid
+import com.intellij.execution.ui.layout.impl.RunnerContentUi
+import com.intellij.execution.ui.layout.impl.RunnerLayoutUiImpl
 import com.intellij.icons.AllIcons
 import com.intellij.jarRepository.JarRepositoryManager
 import com.intellij.jarRepository.RemoteRepositoryDescription
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionPlaces
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.libraries.ui.OrderRoot
 import com.intellij.openapi.util.Key
@@ -69,6 +75,10 @@ class CoroutinesDebugConfigurationExtension : RunConfigurationExtension() {
                                     registerCoroutinesPanel(session?.xDebugSession?.ui ?: return@swingInvokeLater, session)
                                 }
                             }
+
+                            override fun processStopped(debugProcess: XDebugProcess) {
+                                // TODO presumably dispose and delete tab etc.
+                            }
                         })
                     project.listenerCreated = true
                     return
@@ -84,7 +94,7 @@ class CoroutinesDebugConfigurationExtension : RunConfigurationExtension() {
     private fun registerCoroutinesPanel(ui: RunnerLayoutUi, session: DebuggerSession) {
         val panel = CoroutinesPanel(session.project, session.contextManager)
         val content = ui.createContent(
-            DebuggerContentInfo.THREADS_CONTENT, panel, "Coroutines", // TODO(design)
+            "CoroutinesContent", panel, "Coroutines", // TODO(design)
             AllIcons.Debugger.ThreadGroup, null
         )
         content.isCloseable = false
@@ -103,6 +113,12 @@ class CoroutinesDebugConfigurationExtension : RunConfigurationExtension() {
                 }
             }
         }, content)
+        // add coroutine dump button: due to api problem left toolbar is copied, modified and reset to tab
+        val runnerContent = (ui.options as RunnerLayoutUiImpl).getData(RunnerContentUi.KEY.name) as RunnerContentUi
+        val modifiedActions = runnerContent.getActions(true)
+        val pos = modifiedActions.indexOfLast { it is ThreadDumpAction }
+        modifiedActions.add(pos + 1, ActionManager.getInstance().getAction("Kotlin.XDebugger.CoroutinesDump"))
+        ui.options.setLeftToolbar(DefaultActionGroup(modifiedActions), ActionPlaces.DEBUGGER_TOOLBAR)
     }
 
     @Suppress("UNUSED") // not sure will it be needed

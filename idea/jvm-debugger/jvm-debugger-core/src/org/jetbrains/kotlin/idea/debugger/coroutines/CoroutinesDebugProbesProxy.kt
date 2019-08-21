@@ -39,10 +39,9 @@ object CoroutinesDebugProbesProxy {
     fun dumpCoroutines(context: ExecutionContext): Either<Throwable, List<CoroutineState>> {
         try {
             if (context.debugProcess.references == null) {
-                context.debugProcess.references =
-                    ProcessReferences(context)
+                context.debugProcess.references = ProcessReferences(context)
             }
-            val refs = context.debugProcess.references!! // already instantiated if it's null
+            val refs = context.debugProcess.references!! // already initialized if it was null
 
             // get dump
             val infoList = context.invokeMethod(refs.instance, refs.dumpMethod, emptyList()) as ObjectReference
@@ -126,7 +125,7 @@ object CoroutinesDebugProbesProxy {
             ) as ObjectReference
             val clazz = (frame.getValue(refs.className) as StringReference).value()
 
-            if (clazz.contains("$DEBUG_PACKAGE.DebugProbes")) break // cut off debug intrinsic stacktrace
+//            if (clazz.contains("$DEBUG_PACKAGE.DebugProbes")) break // cut off debug intrinsic stacktrace
             list.add(
                 0, // add in the beginning
                 StackTraceElement(

@@ -221,7 +221,6 @@ class CoroutinesDebuggerTree(project: Project) : DebuggerTree(project) {
         val state = if (session != null) session.state else DebuggerSession.State.DISPOSED
         if (ApplicationManager.getApplication().isUnitTestMode
             || state == DebuggerSession.State.PAUSED
-            || state == DebuggerSession.State.RUNNING
         ) {
             showMessage(MessageDescriptor.EVALUATING)
             context.debugProcess!!.managerThread.schedule(command)
@@ -240,12 +239,20 @@ class CoroutinesDebuggerTree(project: Project) : DebuggerTree(project) {
                 return
             }
             val context = mySession.contextManager.context
-            val evaluationContext = debuggerContext.createEvaluationContext() ?: return
+            if (context.suspendContext?.isResumed != false) {
+                root.add(myNodeManager.createMessageNode("Application is resumed"))
+                setRoot(root)
+                return
+            }
+            val evaluationContext = context.createEvaluationContext() ?: return
             val executionContext = ExecutionContext(evaluationContext, context.frameProxy ?: return)
             val nodeManager = nodeFactory
             val states = CoroutinesDebugProbesProxy.dumpCoroutines(executionContext)
             if (states.isLeft) {
                 logger.error(states.left)
+                root.clear()
+                root.add(nodeManager.createMessageNode(MessageDescriptor("Error occurred", MessageDescriptor.ERROR)))
+                setRoot(root)
                 XDebuggerManagerImpl.NOTIFICATION_GROUP
                     .createNotification(
                         "Coroutine dump failed. See log",
@@ -260,6 +267,10 @@ class CoroutinesDebuggerTree(project: Project) : DebuggerTree(project) {
                     )
                 )
             }
+            setRoot(root)
+        }
+
+        private fun setRoot(root: DebuggerTreeNodeImpl) {
             DebuggerInvocationUtil.swingInvokeLater(project) {
                 mutableModel.setRoot(root)
                 treeChanged()

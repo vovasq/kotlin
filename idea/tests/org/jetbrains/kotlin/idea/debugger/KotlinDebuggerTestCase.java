@@ -265,7 +265,7 @@ public abstract class KotlinDebuggerTestCase extends DescriptorTestCase {
 
                 String sourcesDir = modulePath + File.separator + "src";
 
-                MockLibraryUtil.compileKotlin(sourcesDir, outDir, CollectionsKt.listOf("-jvm-target", "1.8"), CUSTOM_LIBRARY_JAR.getPath());
+                MockLibraryUtil.compileKotlin(sourcesDir, outDir, CollectionsKt.listOf("-jvm-target", "1.8"), collectClasspath());
 
                 List<String> options =
                         Arrays.asList("-d", outputDirPath, "-classpath",
@@ -297,6 +297,10 @@ public abstract class KotlinDebuggerTestCase extends DescriptorTestCase {
             deleteLocalCacheDirectory(false);
             Assert.fail("Output directory for module wasn't created: " + outDir.getAbsolutePath());
         }
+    }
+
+    protected String[] collectClasspath() {
+        return new String[] {CUSTOM_LIBRARY_JAR.getPath()};
     }
 
     private static List<File> findJavaFiles(@NotNull File directory) {

@@ -48,9 +48,9 @@ class CoroutineState(
      * @return null if matching continuation is not found or is not BaseContinuationImpl
      */
     fun getContinuation(stackTraceElement: StackTraceElement, context: ExecutionContext): ObjectReference? {
-        var continuation: ObjectReference? = frame ?: return null
+        var continuation = frame ?: return null
         val baseType = "kotlin.coroutines.jvm.internal.BaseContinuationImpl"
-        val getTrace = (continuation!!.type() as ClassType).concreteMethodByName(
+        val getTrace = (continuation.type() as ClassType).concreteMethodByName(
             "getStackTraceElement",
             "()Ljava/lang/StackTraceElement;"
         )
@@ -58,21 +58,25 @@ class CoroutineState(
         val getClassName = stackTraceType.concreteMethodByName("getClassName", "()Ljava/lang/String;")
         val getLineNumber = stackTraceType.concreteMethodByName("getLineNumber", "()I")
         val className = {
-            val trace = context.invokeMethod(continuation!!, getTrace, emptyList()) as ObjectReference
-            (context.invokeMethod(trace, getClassName, emptyList()) as StringReference).value()
+            val trace = context.invokeMethod(continuation, getTrace, emptyList()) as? ObjectReference
+            if (trace != null)
+                (context.invokeMethod(trace, getClassName, emptyList()) as StringReference).value()
+            else ""
         }
         val lineNumber = {
-            val trace = context.invokeMethod(continuation!!, getTrace, emptyList()) as ObjectReference
-            (context.invokeMethod(trace, getLineNumber, emptyList()) as IntegerValue).value()
+            val trace = context.invokeMethod(continuation, getTrace, emptyList()) as? ObjectReference
+            if (trace != null)
+                (context.invokeMethod(trace, getLineNumber, emptyList()) as IntegerValue).value()
+            else -239 // invalid line number (but well-educated)
         }
 
-        while (continuation != null && continuation.type().isSubtype(baseType)
+        while (continuation.type().isSubtype(baseType)
             && (stackTraceElement.className != className() || stackTraceElement.lineNumber != lineNumber())
         ) {
             // while continuation is BaseContinuationImpl and it's frame equals to the current
-            continuation = getNextFrame(continuation, context)
+            continuation = getNextFrame(continuation, context) ?: return null
         }
-        return if (continuation != null && continuation.type().isSubtype(baseType)) continuation else null
+        return if (continuation.type().isSubtype(baseType)) continuation else null
     }
 
     enum class State {
