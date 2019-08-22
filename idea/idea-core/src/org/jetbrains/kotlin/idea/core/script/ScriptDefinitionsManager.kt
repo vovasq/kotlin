@@ -24,7 +24,6 @@ import com.intellij.ide.scratch.ScratchRootType
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.runWriteAction
 import com.intellij.openapi.components.ServiceManager
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.extensions.ExtensionPointName
 import com.intellij.openapi.extensions.Extensions
 import com.intellij.openapi.fileTypes.FileTypeManager
@@ -35,7 +34,6 @@ import com.intellij.openapi.projectRoots.ex.PathUtilEx
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.ui.EditorNotifications
 import com.intellij.util.containers.SLRUMap
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.idea.caches.project.SdkInfo
@@ -190,13 +188,7 @@ class ScriptDefinitionsManager(private val project: Project) : LazyScriptDefinit
         scriptDefinitionsCacheLock.write { scriptDefinitionsCache.clear() }
 
         // TODO: clear by script type/definition
-        ServiceManager.getService(project, ScriptsCompilationConfigurationCache::class.java).clear()
-
-        ApplicationManager.getApplication().invokeLater {
-            if (!project.isDisposed) {
-                EditorNotifications.getInstance(project).updateAllNotifications()
-            }
-        }
+        ScriptDependenciesManager.getInstance(project).clearConfigurationCachesAndRehighlight()
     }
 
     private fun ScriptDefinitionsSource.safeGetDefinitions(): List<ScriptDefinition> {
@@ -224,9 +216,6 @@ class ScriptDefinitionsManager(private val project: Project) : LazyScriptDefinit
             ServiceManager.getService(project, ScriptDefinitionProvider::class.java) as ScriptDefinitionsManager
     }
 }
-
-
-private val LOG = Logger.getInstance("ScriptTemplatesProviders")
 
 // TODO: consider rewriting to return sequence
 fun loadDefinitionsFromTemplates(
