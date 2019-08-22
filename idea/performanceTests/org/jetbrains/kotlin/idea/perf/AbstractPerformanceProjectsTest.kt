@@ -59,7 +59,7 @@ import com.intellij.util.io.exists
 import com.intellij.xml.XmlSchemaProvider
 import org.jetbrains.kotlin.idea.KotlinLanguage
 import org.jetbrains.kotlin.idea.core.script.ScriptDefinitionsManager
-import org.jetbrains.kotlin.idea.core.script.ScriptDependenciesManager
+import org.jetbrains.kotlin.idea.core.script.ScriptConfigurationManager
 import org.jetbrains.kotlin.idea.core.script.settings.KotlinScriptingSettings
 import org.jetbrains.kotlin.idea.core.util.toPsiFile
 import org.jetbrains.kotlin.idea.framework.KotlinSdkType
@@ -384,7 +384,7 @@ abstract class AbstractPerformanceProjectsTest : UsefulTestCase() {
             // Note: Kotlin scripts require dependencies to be loaded
             if (isAKotlinScriptFile(fileName)) {
                 val vFile = fileInEditor.psiFile
-                ScriptDependenciesManager.updateScriptDependenciesSynchronously(vFile, project)
+                ScriptConfigurationManager.updateScriptDependenciesSynchronously(vFile, project)
             }
 
             //enableHints(false)
