@@ -641,8 +641,8 @@ abstract class AbstractPerformanceProjectsTest : UsefulTestCase() {
         val fileManager = VirtualFileManager.getInstance()
         val url = "${project.guessProjectDir()}/$name"
         val virtualFile = fileManager.refreshAndFindFileByUrl(url)
-        if (virtualFile != null) {
-            return virtualFile!!.toPsiFile(project)!!
+        virtualFile?.let {
+            return it.toPsiFile(project)!!
         }
 
         val baseFileName = baseName(name)
@@ -656,7 +656,8 @@ abstract class AbstractPerformanceProjectsTest : UsefulTestCase() {
             .filter { it.canonicalPath?.contains("/$projectBaseName/$name") ?: false }.toList()
 
         assertEquals(
-            "expected the only file with name '$name'\n, it were: [${virtualFiles.map { it.canonicalPath }.joinToString("\n")}]",
+            "'$name' not found at '$url', try via '$baseFileName' in '$projectBaseName': " +
+                    "expected the only file with name '$name'\n, it were: [${virtualFiles.map { it.canonicalPath }.joinToString("\n")}]",
             1,
             virtualFiles.size
         )
