@@ -40,7 +40,7 @@ class CoroutineDumpAction : AnAction(), AnAction.TransparentUpdate {
                     val execContext = context.createExecutionContext() ?: return
                     val states = CoroutinesDebugProbesProxy.dumpCoroutines(execContext)
                     if (states.isLeft) {
-                        logger.error(states.left)
+                        logger.warn(states.left)
                         XDebuggerManagerImpl.NOTIFICATION_GROUP
                             .createNotification(
                                 "Coroutine dump failed. See log",

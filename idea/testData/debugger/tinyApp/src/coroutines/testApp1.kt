@@ -2,12 +2,15 @@ package testApp1
 
 import kotlinx.coroutines.*
 import kotlin.random.Random
+import kotlinx.coroutines.channels.Channel
 
+val channel = Channel<Int>()
 fun main() {
     val coroutine1 = GlobalScope.launch {
         fun1()
     }
     runBlocking {
+        channel.send(5)
         coroutine1.join()
     }
 }
@@ -62,7 +65,7 @@ suspend fun fun8() {
 
 suspend fun fun9() {
     val k = 8
-    delay(500)
+    channel.receive()
     fun10()
 }
 

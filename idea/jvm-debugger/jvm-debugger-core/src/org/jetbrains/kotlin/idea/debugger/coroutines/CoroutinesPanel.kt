@@ -7,44 +7,29 @@
 
 package org.jetbrains.kotlin.idea.debugger.coroutines
 
-import com.intellij.debugger.DebuggerManagerEx
 import com.intellij.debugger.actions.DebuggerActions
-import com.intellij.debugger.actions.GotoFrameSourceAction
-import com.intellij.debugger.engine.DebugProcessImpl
-import com.intellij.debugger.engine.JavaExecutionStack
 import com.intellij.debugger.engine.events.DebuggerCommandImpl
 import com.intellij.debugger.impl.DebuggerContextImpl
 import com.intellij.debugger.impl.DebuggerContextListener
 import com.intellij.debugger.impl.DebuggerSession
 import com.intellij.debugger.impl.DebuggerStateManager
-import com.intellij.debugger.jdi.ThreadReferenceProxyImpl
 import com.intellij.debugger.ui.impl.DebuggerTreePanel
 import com.intellij.debugger.ui.impl.watch.DebuggerTree
 import com.intellij.debugger.ui.impl.watch.DebuggerTreeNodeImpl
-import com.intellij.debugger.ui.tree.StackFrameDescriptor
-import com.intellij.ide.DataManager
-import com.intellij.openapi.actionSystem.*
-import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionPopupMenu
+import com.intellij.openapi.actionSystem.EmptyActionGroup
+import com.intellij.openapi.actionSystem.PlatformDataKeys
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
-import com.intellij.psi.JavaPsiFacade
-import com.intellij.psi.search.GlobalSearchScope
-import com.intellij.ui.DoubleClickListener
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.util.Alarm
-import com.intellij.xdebugger.XDebuggerUtil
-import com.intellij.xdebugger.XSourcePosition
-import com.intellij.xdebugger.frame.XExecutionStack
-import com.intellij.xdebugger.impl.ui.DebuggerUIUtil
-import com.sun.jdi.ClassType
 import org.jetbrains.annotations.NonNls
-import org.jetbrains.kotlin.idea.debugger.KotlinCoroutinesAsyncStackTraceProvider
-import org.jetbrains.kotlin.idea.debugger.evaluate.createExecutionContext
 import java.awt.BorderLayout
-import java.awt.event.MouseEvent
+import java.awt.event.KeyAdapter
+import java.awt.event.KeyEvent
 import java.util.*
-import javax.swing.JTree
 
 /**
  * Actually added into ui in [CoroutinesDebugConfigurationExtension.registerCoroutinesPanel]
@@ -54,8 +39,16 @@ class CoroutinesPanel(project: Project, stateManager: DebuggerStateManager) : De
     private val myUpdateLabelsAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD)
 
     init {
-        val disposable = installAction(getCoroutinesTree(), DebuggerActions.EDIT_FRAME_SOURCE)
+        val disposable = getCoroutinesTree().installAction(DebuggerActions.EDIT_FRAME_SOURCE)
         registerDisposable(disposable)
+        getCoroutinesTree().addKeyListener(object : KeyAdapter() {
+            override fun keyPressed(e: KeyEvent) {
+                if (e.keyCode == KeyEvent.VK_ENTER && getCoroutinesTree().selectionCount == 1) {
+                    val selected = getCoroutinesTree().selectionModel.selectionPath.lastPathComponent
+                    if (selected is DebuggerTreeNodeImpl) getCoroutinesTree().selectFrame(selected.userObject)
+                }
+            }
+        })
         add(ScrollPaneFactory.createScrollPane(getCoroutinesTree()), BorderLayout.CENTER)
         stateManager.addListener(object : DebuggerContextListener {
             override fun changeEvent(newContext: DebuggerContextImpl, event: DebuggerSession.Event) {
@@ -73,134 +66,6 @@ class CoroutinesPanel(project: Project, stateManager: DebuggerStateManager) : De
             }
         })
         startLabelsUpdate()
-    }
-
-    @Suppress("SameParameterValue")
-    private fun installAction(tree: JTree, actionName: String): () -> Unit {
-        val listener = object : DoubleClickListener() {
-            override fun onDoubleClick(e: MouseEvent): Boolean {
-                val location = tree.getPathForLocation(e.x, e.y)
-                    ?.lastPathComponent as? DebuggerTreeNodeImpl ?: return false
-
-                val dataContext = DataManager.getInstance().getDataContext(tree)
-                val context = DebuggerManagerEx.getInstanceEx(project).context
-                when (val descriptor = location.userObject) {
-                    is CoroutinesDebuggerTree.SuspendStackFrameDescriptor -> {
-                        buildSuspendStackFrameChildren(descriptor)
-                        return true
-                    }
-                    is CoroutinesDebuggerTree.AsyncStackFrameDescriptor -> {
-                        buildAsyncStackFrameChildren(descriptor, context.debugProcess ?: return false)
-                        // TODO add creation to async
-                        return true
-                    }
-                    is CoroutinesDebuggerTree.EmptyStackFrameDescriptor -> {
-                        buildEmptyStackFrameChildren(descriptor)
-                        return true
-                    }
-                    is StackFrameDescriptor -> {
-                        GotoFrameSourceAction.doAction(dataContext)
-                        return true
-                    }
-                    else -> return true
-                }
-            }
-        }
-        listener.installOn(tree)
-
-        val disposable = { listener.uninstall(tree) }
-        DebuggerUIUtil.registerActionOnComponent(actionName, tree, disposable)
-
-        return disposable
-    }
-
-    private fun getPosition(frame: StackTraceElement): XSourcePosition? {
-        val psiFacade = JavaPsiFacade.getInstance(project)
-        val psiClass = psiFacade.findClass(
-            frame.className.substringBefore("$"), // find outer class, for which psi exists
-            GlobalSearchScope.everythingScope(project)
-        )
-        val classFile = psiClass?.containingFile?.virtualFile
-        return XDebuggerUtil.getInstance().createPosition(classFile, frame.lineNumber)
-    }
-
-    private fun buildSuspendStackFrameChildren(descriptor: CoroutinesDebuggerTree.SuspendStackFrameDescriptor) {
-        val pos = getPosition(descriptor.frame) ?: return
-        context.debugProcess?.managerThread?.schedule(object : DebuggerCommandImpl() {
-            override fun action() {
-                val (stack, stackFrame) = createFakeStackFrame(descriptor, pos) ?: return
-                val action: () -> Unit = { context.debuggerSession?.xDebugSession?.setCurrentStackFrame(stack, stackFrame) }
-                ApplicationManager.getApplication()
-                    .invokeLater(action, ModalityState.stateForComponent(this@CoroutinesPanel))
-            }
-        })
-    }
-
-    private fun buildAsyncStackFrameChildren(descriptor: CoroutinesDebuggerTree.AsyncStackFrameDescriptor, process: DebugProcessImpl) {
-        process.managerThread?.schedule(object : DebuggerCommandImpl() {
-            override fun action() {
-                val proxy = ThreadReferenceProxyImpl(
-                    process.virtualMachineProxy,
-                    descriptor.state.thread // is not null because it's a running coroutine
-                )
-                val executionStack = JavaExecutionStack(proxy, process, false)
-                executionStack.initTopFrame()
-                val frame = descriptor.frame.createFrame(process)
-                DebuggerUIUtil.invokeLater {
-                    context.debuggerSession?.xDebugSession?.setCurrentStackFrame(
-                        executionStack,
-                        frame
-                    )
-                }
-            }
-        })
-    }
-
-    private fun buildEmptyStackFrameChildren(descriptor: CoroutinesDebuggerTree.EmptyStackFrameDescriptor) {
-        val position = getPosition(descriptor.frame) ?: return
-        val suspendContext = context.suspendContext ?: return
-        val proxy = suspendContext.thread ?: return
-        context.debugProcess?.managerThread?.schedule(object : DebuggerCommandImpl() {
-            override fun action() {
-                val executionStack =
-                    JavaExecutionStack(proxy, context.debugProcess!!, false)
-                executionStack.initTopFrame()
-                val frame = FakeStackFrame(descriptor, emptyList(), position)
-                val action: () -> Unit =
-                    { context.debuggerSession?.xDebugSession?.setCurrentStackFrame(executionStack, frame) }
-                ApplicationManager.getApplication()
-                    .invokeLater(action, ModalityState.stateForComponent(this@CoroutinesPanel))
-            }
-        })
-    }
-
-    /**
-     * Should be invoked on manager thread
-     */
-    private fun createFakeStackFrame(
-        descriptor: CoroutinesDebuggerTree.SuspendStackFrameDescriptor,
-        pos: XSourcePosition
-    ): Pair<XExecutionStack, FakeStackFrame>? {
-        val proxy = context.suspendContext?.thread ?: return null
-        val executionStack =
-            JavaExecutionStack(proxy, context.debugProcess!!, false)
-        executionStack.initTopFrame()
-        val execContext = context.createExecutionContext() ?: return null
-        val continuation = descriptor.continuation // guaranteed that it is a BaseContinuationImpl
-        val aMethod = (continuation.type() as ClassType).concreteMethodByName(
-            "getStackTraceElement",
-            "()Ljava/lang/StackTraceElement;"
-        )
-        val debugMetadataKtType = execContext
-            .findClass("kotlin.coroutines.jvm.internal.DebugMetadataKt") as ClassType
-        val vars = with(KotlinCoroutinesAsyncStackTraceProvider()) {
-            KotlinCoroutinesAsyncStackTraceProvider.AsyncStackTraceContext(
-                execContext,
-                aMethod,
-                debugMetadataKtType
-            ).getSpilledVariables(continuation)
-        } ?: return null
-        return executionStack to FakeStackFrame(descriptor, vars, pos)
     }
 
     private fun startLabelsUpdate() {

@@ -78,7 +78,7 @@ abstract class AbstractCoroutineDumpTest : KotlinDebuggerTestBase() {
 
     override fun createJavaParameters(mainClass: String?): JavaParameters {
         val path = "/Users/aleksandr.prokopyev/.m2/repository/org/jetbrains/kotlinx/kotlinx-coroutines-debug/" +
-                "1.3.0-RC-SNAPSHOT/kotlinx-coroutines-debug-1.3.0-RC-SNAPSHOT.jar"
+                "1.3.0-RC-SNAPSHOT/kotlinx-coroutines-debug-1.3.0-RC-SNAPSHOT.jar" // TODO
         val jar = PathUtil.getResourcePathForClass(Class.forName("kotlinx.coroutines.CoroutineName"))
         val params = super.createJavaParameters(mainClass)
         params.classPath.add(path)

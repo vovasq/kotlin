@@ -22,19 +22,20 @@ import com.intellij.jarRepository.JarRepositoryManager
 import com.intellij.jarRepository.RemoteRepositoryDescription
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionPlaces
-import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.libraries.ui.OrderRoot
 import com.intellij.openapi.util.Key
 import com.intellij.ui.content.ContentManagerAdapter
 import com.intellij.ui.content.ContentManagerEvent
+import com.intellij.util.messages.MessageBusConnection
 import com.intellij.xdebugger.XDebugProcess
 import com.intellij.xdebugger.XDebuggerManager
 import com.intellij.xdebugger.XDebuggerManagerListener
 import org.jetbrains.idea.maven.aether.ArtifactKind
 import org.jetbrains.jps.model.library.JpsMavenRepositoryLibraryDescriptor
 import org.jetbrains.kotlin.psi.UserDataProperty
+import java.lang.ref.WeakReference
 
 /**
  * Installs coroutines debug agent and coroutines tab if `kotlinx.coroutines.debug` dependency is found
@@ -66,25 +67,31 @@ class CoroutinesDebugConfigurationExtension : RunConfigurationExtension() {
                 val project = (configuration as RunConfigurationBase<*>).project
                 // add listener to put coroutines tab into debugger tab
                 if (project.listenerCreated != true) { // prevent multiple listeners creation
-                    project.messageBus.connect().subscribe(
-                        XDebuggerManager.TOPIC,
-                        object : XDebuggerManagerListener {
-                            override fun processStarted(debugProcess: XDebugProcess) {
-                                val session = DebuggerManagerEx.getInstanceEx(project).context.debuggerSession
-                                DebuggerInvocationUtil.swingInvokeLater(project) {
-                                    registerCoroutinesPanel(session?.xDebugSession?.ui ?: return@swingInvokeLater, session)
-                                }
-                            }
-
-                            override fun processStopped(debugProcess: XDebugProcess) {
-                                // TODO presumably dispose and delete tab etc.
-                            }
-                        })
+                    val connection = project.messageBus.connect()
+                    connection.subscribe(
+                        XDebuggerManager.TOPIC, createListener(project)
+                    )
                     project.listenerCreated = true
                     return
                 }
             }
 
+        }
+    }
+
+    private fun createListener(project: Project): XDebuggerManagerListener {
+        return object : XDebuggerManagerListener {
+            override fun processStarted(debugProcess: XDebugProcess) {
+                DebuggerInvocationUtil.swingInvokeLater(project) {
+                    val session = DebuggerManagerEx.getInstanceEx(project).context.debuggerSession
+                    if (session != null)
+                        registerCoroutinesPanel(session.xDebugSession?.ui ?: return@swingInvokeLater, session)
+                }
+            }
+
+            override fun processStopped(debugProcess: XDebugProcess) {
+                // TODO presumably dispose and delete tab etc.
+            }
         }
     }
 
