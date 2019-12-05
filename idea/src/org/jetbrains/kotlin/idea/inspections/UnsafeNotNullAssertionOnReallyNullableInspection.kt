@@ -5,17 +5,22 @@
 
 package org.jetbrains.kotlin.idea.inspections
 
-import com.intellij.codeInspection.IntentionWrapper
-import com.intellij.codeInspection.ProblemHighlightType
-import com.intellij.codeInspection.ProblemsHolder
+import com.intellij.codeInsight.FileModificationService
+import com.intellij.codeInsight.intention.IntentionAction
+import com.intellij.codeInspection.*
+import com.intellij.openapi.editor.Editor
+import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElementVisitor
+import com.intellij.psi.PsiFile
 import org.jetbrains.kotlin.descriptors.CallableDescriptor
 import org.jetbrains.kotlin.descriptors.impl.ValueParameterDescriptorImpl
 import org.jetbrains.kotlin.diagnostics.Errors
 import org.jetbrains.kotlin.idea.caches.resolve.analyze
+import org.jetbrains.kotlin.idea.core.replaced
 import org.jetbrains.kotlin.idea.quickfix.ChangeCallableReturnTypeFix
 import org.jetbrains.kotlin.idea.quickfix.ChangeParameterTypeFix
 import org.jetbrains.kotlin.idea.quickfix.ChangeVariableTypeFix
+import org.jetbrains.kotlin.idea.quickfix.moveCaretToEnd
 import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.*
@@ -30,8 +35,8 @@ class UnsafeNotNullAssertionOnReallyNullableInspection : AbstractKotlinInspectio
             if (expression.operationToken != KtTokens.EXCLEXCL) return
             val context = expression.analyze(BodyResolveMode.PARTIAL_WITH_DIAGNOSTICS)
             if (context.diagnostics.forElement(expression.operationReference)
-                    .any { it.factory == Errors.UNNECESSARY_NOT_NULL_ASSERTION }
-            ) return
+                    .any { it.factory == Errors.UNNECESSARY_NOT_NULL_ASSERTION }) return
+
             when (val base = expression.baseExpression) {
                 is KtNameReferenceExpression -> {
                     registerFixForNamedReference(base, context, holder, expression)
@@ -41,7 +46,8 @@ class UnsafeNotNullAssertionOnReallyNullableInspection : AbstractKotlinInspectio
                         expression,
                         base,
                         context,
-                        holder
+                        holder,
+                        expression
                     )
                 }
                 is KtDotQualifiedExpression -> {
@@ -53,7 +59,8 @@ class UnsafeNotNullAssertionOnReallyNullableInspection : AbstractKotlinInspectio
                         //TODO: add reference type loop
                         base.selectorExpression as? KtCallExpression ?: return,
                         context,
-                        holder
+                        holder,
+                        expression
                     )
                 }
             }
@@ -70,7 +77,8 @@ class UnsafeNotNullAssertionOnReallyNullableInspection : AbstractKotlinInspectio
         postfixExpression: KtPostfixExpression,
         callExpression: KtCallExpression,
         context: BindingContext,
-        holder: ProblemsHolder
+        holder: ProblemsHolder,
+        expression: KtPostfixExpression
     ) {
         val basePsi = callExpression.calleeExpression?.mainReference?.resolve() ?: return
         val fooDescriptor = context[BindingContext.FUNCTION, basePsi] ?: return
@@ -80,7 +88,9 @@ class UnsafeNotNullAssertionOnReallyNullableInspection : AbstractKotlinInspectio
         )
         holder.registerProblem(
             postfixExpression.operationReference, inspectionDescription,
-            ProblemHighlightType.WEAK_WARNING, IntentionWrapper(fix, postfixExpression.containingFile)
+            ProblemHighlightType.WEAK_WARNING,
+//            IntentionWrapper(fix, postfixExpression.containingFile)
+            WrapperWithEmbeddedFixBeforeMainFix(fix, expression, postfixExpression.containingFile)
         )
 
     }
@@ -101,7 +111,9 @@ class UnsafeNotNullAssertionOnReallyNullableInspection : AbstractKotlinInspectio
                     )
                     holder.registerProblem(
                         expression, inspectionDescription,
-                        ProblemHighlightType.WEAK_WARNING, IntentionWrapper(fix, basePsi.containingFile)
+                        ProblemHighlightType.WEAK_WARNING,
+//                        IntentionWrapper(fix, basePsi.containingFile)
+                        WrapperWithEmbeddedFixBeforeMainFix(fix, expression, basePsi.containingFile)
                     )
                 }
             }
@@ -122,11 +134,55 @@ class UnsafeNotNullAssertionOnReallyNullableInspection : AbstractKotlinInspectio
 
     }
 
+    private class WrapperWithEmbeddedFixBeforeMainFix(
+        intention: IntentionAction,
+        val postfixExpression: KtPostfixExpression,
+        file: PsiFile
+    ) : IntentionWrapper(intention, file) {
+        override fun invoke(project: Project, editor: Editor?, file: PsiFile?) {
+//            removeExclExclBefore(project, file, postfixExpression)
+
+            if (!FileModificationService.getInstance().prepareFileForWrite(file)) return
+            val expression =
+                KtPsiFactory(project).createExpression(postfixExpression.baseExpression!!.text)
+            postfixExpression.replace(expression)
+            super.invoke(project, editor, file)
+        }
+
+//        private fun removeExclExclBefore(
+//            project: Project,
+//            file: PsiFile?,
+//            postfixExpression: KtPostfixExpression
+//        ) {
+//            if (!FileModificationService.getInstance().prepareFileForWrite(file)) return
+//            val expression =
+//                KtPsiFactory(project).createExpression(postfixExpression.baseExpression!!.text)
+//            postfixExpression.replace(expression)
+//        }
+    }
+
     companion object {
         val inspectionDescription: String = "Unsafe using of '!!' operator"
     }
 }
 
+private class RemoveExclExclFix : LocalQuickFix {
+
+    override fun getFamilyName(): String = name
+
+    override fun applyFix(project: Project, descriptor: ProblemDescriptor) {
+        applyFix(project, descriptor.psiElement as? KtPostfixExpression ?: return)
+    }
+
+    private fun applyFix(project: Project, expression: KtPostfixExpression) {
+        if (!FileModificationService.getInstance().preparePsiElementForWrite(expression)) return
+//        val postfix = expression.receiverExpression as? KtPostfixExpression ?: return
+        val editor = expression.findExistingEditor()
+        expression.replaced(KtPsiFactory(expression).buildExpression {
+            appendExpression(expression.baseExpression)
+        }).moveCaretToEnd(editor, project)
+    }
+}
 
 
 //TODO:
