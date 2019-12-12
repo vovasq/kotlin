@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.idea.inspections;
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.JUnit3RunnerWithInners;
 import org.jetbrains.kotlin.test.KotlinTestUtils;
-import org.jetbrains.kotlin.test.TargetBackend;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.runner.RunWith;
 
@@ -12373,16 +12372,21 @@ public class LocalInspectionTestGenerated extends AbstractLocalInspectionTest {
     @RunWith(JUnit3RunnerWithInners.class)
     public static class UnsafeNotNullAssertionOnReallyNullable extends AbstractLocalInspectionTest {
         private void runTest(String testDataFilePath) throws Exception {
-            KotlinTestUtils.runTest(this::doTest, TargetBackend.ANY, testDataFilePath);
+            KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
         }
 
         public void testAllFilesPresentInUnsafeNotNullAssertionOnReallyNullable() throws Exception {
-            KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/inspectionsLocal/unsafeNotNullAssertionOnReallyNullable"), Pattern.compile("^([\\w\\-_]+)\\.(kt|kts)$"), TargetBackend.ANY, true);
+            KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/inspectionsLocal/unsafeNotNullAssertionOnReallyNullable"), Pattern.compile("^([\\w\\-_]+)\\.(kt|kts)$"), true);
         }
 
         @TestMetadata("globalFunWithNullableParamToNot.kt")
         public void testGlobalFunWithNullableParamToNot() throws Exception {
             runTest("idea/testData/inspectionsLocal/unsafeNotNullAssertionOnReallyNullable/globalFunWithNullableParamToNot.kt");
+        }
+
+        @TestMetadata("globalNullableVal.kt")
+        public void testGlobalNullableVal() throws Exception {
+            runTest("idea/testData/inspectionsLocal/unsafeNotNullAssertionOnReallyNullable/globalNullableVal.kt");
         }
 
         @TestMetadata("globalNullableVar.kt")
