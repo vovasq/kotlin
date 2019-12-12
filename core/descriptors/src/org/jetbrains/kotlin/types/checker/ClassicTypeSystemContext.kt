@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.FqNameUnsafe
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.calls.inference.CapturedType
+import org.jetbrains.kotlin.resolve.calls.inference.CapturedTypeConstructorImpl
 import org.jetbrains.kotlin.resolve.constants.IntegerLiteralTypeConstructor
 import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameUnsafe
 import org.jetbrains.kotlin.resolve.descriptorUtil.hasExactAnnotation
@@ -136,6 +137,16 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
     override fun SimpleTypeMarker.typeConstructor(): TypeConstructorMarker {
         require(this is SimpleType, this::errorMessage)
         return this.constructor
+    }
+
+    override fun CapturedTypeMarker.typeConstructor(): CapturedTypeConstructorMarker {
+        require(this is NewCapturedType, this::errorMessage)
+        return this.constructor
+    }
+
+    override fun CapturedTypeConstructorMarker.projection(): TypeArgumentMarker {
+        require(this is NewCapturedTypeConstructor, this::errorMessage)
+        return this.projection
     }
 
     override fun KotlinTypeMarker.argumentsCount(): Int {
@@ -321,8 +332,11 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
     }
 
 
-    override fun newBaseTypeCheckerContext(errorTypesEqualToAnything: Boolean): AbstractTypeCheckerContext {
-        return ClassicTypeCheckerContext(errorTypesEqualToAnything)
+    override fun newBaseTypeCheckerContext(
+        errorTypesEqualToAnything: Boolean,
+        stubTypesEqualToAnything: Boolean
+    ): AbstractTypeCheckerContext {
+        return ClassicTypeCheckerContext(errorTypesEqualToAnything, stubTypesEqualToAnything)
     }
 
     override fun nullableNothingType(): SimpleTypeMarker {
@@ -341,7 +355,8 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
         return builtIns.anyType
     }
 
-    val builtIns: KotlinBuiltIns get() = throw UnsupportedOperationException("Not supported")
+    open val builtIns: KotlinBuiltIns
+        get() = throw UnsupportedOperationException("Not supported")
 
     override fun KotlinTypeMarker.makeDefinitelyNotNullOrNotNull(): KotlinTypeMarker {
         require(this is UnwrappedType, this::errorMessage)
@@ -455,6 +470,10 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
         errorSupportedOnlyInTypeInference()
     }
 
+    override fun createEmptySubstitutor(): TypeSubstitutorMarker {
+        errorSupportedOnlyInTypeInference()
+    }
+
     override fun TypeSubstitutorMarker.safeSubstitute(type: KotlinTypeMarker): KotlinTypeMarker {
         require(type is UnwrappedType, type::errorMessage)
         require(this is TypeSubstitutor, this::errorMessage)
@@ -500,6 +519,16 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
 
     override fun TypeConstructorMarker.isCapturedTypeConstructor(): Boolean {
         return this is NewCapturedTypeConstructor
+    }
+
+    override fun arrayType(componentType: KotlinTypeMarker): SimpleTypeMarker {
+        require(componentType is KotlinType, this::errorMessage)
+        return builtIns.getArrayType(Variance.INVARIANT, componentType)
+    }
+
+    override fun KotlinTypeMarker.isArrayOrNullableArray(): Boolean {
+        require(this is KotlinType, this::errorMessage)
+        return KotlinBuiltIns.isArray(this)
     }
 
     override fun KotlinTypeMarker.hasAnnotation(fqName: FqName): Boolean {
@@ -555,6 +584,11 @@ interface ClassicTypeSystemContext : TypeSystemInferenceExtensionContext, TypeSy
     override fun TypeParameterMarker.getName(): Name {
         require(this is TypeParameterDescriptor, this::errorMessage)
         return name
+    }
+
+    override fun TypeParameterMarker.isReified(): Boolean {
+        require(this is TypeParameterDescriptor, this::errorMessage)
+        return isReified
     }
 
     override fun KotlinTypeMarker.isInterfaceOrAnnotationClass(): Boolean {

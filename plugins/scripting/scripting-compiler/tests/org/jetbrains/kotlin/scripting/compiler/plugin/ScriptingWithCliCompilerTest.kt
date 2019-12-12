@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.scripting.compiler.plugin
 
 import junit.framework.Assert
+import org.jetbrains.kotlin.cli.common.environment.setIdeaIoUseFallback
 import org.junit.Test
 import java.io.File
 
@@ -13,6 +14,10 @@ class ScriptingWithCliCompilerTest {
 
     companion object {
         const val TEST_DATA_DIR = "plugins/scripting/scripting-compiler/testData"
+    }
+
+    init {
+        setIdeaIoUseFallback()
     }
 
     @Test
@@ -27,18 +32,40 @@ class ScriptingWithCliCompilerTest {
 
     @Test
     fun testStandardScriptWithDeps() {
-        runWithK2JVMCompiler("$TEST_DATA_DIR/integration/withDependencyOnCompileClassPath.kts", listOf("Hello from standard kts!"))
+        runWithK2JVMCompiler(
+            "$TEST_DATA_DIR/integration/withDependencyOnCompileClassPath.kts", listOf("Hello from standard kts!"),
+            classpath = getMainKtsClassPath()
+        )
     }
 
     @Test
     fun testStandardScriptWithDepsViaKotlinc() {
         runWithKotlinc(
             "$TEST_DATA_DIR/integration/withDependencyOnCompileClassPath.kts", listOf("Hello from standard kts!"),
-            classpath = listOf(
-                File("dist/kotlinc/lib/kotlin-main-kts.jar").also {
-                    Assert.assertTrue("kotlin-main-kts.jar not found, run dist task: ${it.absolutePath}", it.exists())
-                }
-            )
+            classpath = getMainKtsClassPath()
+        )
+    }
+
+    @Test
+    fun testExpression() {
+        runWithK2JVMCompiler(
+            arrayOf(
+                "-Xexpression",
+                "val x = 7; println(x * 6); for (arg in args) println(arg)",
+                "--",
+                "hi",
+                "there"
+            ),
+            listOf("42", "hi", "there")
+        )
+    }
+
+
+    private fun getMainKtsClassPath(): List<File> {
+        return listOf(
+            File("dist/kotlinc/lib/kotlin-main-kts.jar").also {
+                Assert.assertTrue("kotlin-main-kts.jar not found, run dist task: ${it.absolutePath}", it.exists())
+            }
         )
     }
 }

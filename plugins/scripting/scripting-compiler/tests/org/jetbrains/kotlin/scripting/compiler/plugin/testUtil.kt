@@ -5,6 +5,8 @@
 
 package org.jetbrains.kotlin.scripting.compiler.plugin
 
+import com.intellij.openapi.Disposable
+import com.intellij.openapi.util.Disposer
 import junit.framework.Assert
 import org.jetbrains.kotlin.cli.common.CLITool
 import org.jetbrains.kotlin.cli.jvm.K2JVMCompiler
@@ -12,6 +14,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
 import java.io.PrintStream
+import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
@@ -98,20 +101,37 @@ fun runWithKotlinc(
 fun runWithK2JVMCompiler(
     scriptPath: String,
     expectedOutPatterns: List<String> = emptyList(),
+    expectedExitCode: Int = 0,
+    classpath: List<File> = emptyList()
+) {
+    val args = arrayListOf("-kotlin-home", "dist/kotlinc").apply {
+        if (classpath.isNotEmpty()) {
+            add("-cp")
+            add(classpath.joinToString(File.pathSeparator))
+        }
+        add("-script")
+        add(scriptPath)
+    }
+    runWithK2JVMCompiler(args.toTypedArray(), expectedOutPatterns, expectedExitCode)
+}
+
+fun runWithK2JVMCompiler(
+    args: Array<String>,
+    expectedOutPatterns: List<String> = emptyList(),
     expectedExitCode: Int = 0
 ) {
-    val mainKtsJar = File("dist/kotlinc/lib/kotlin-main-kts.jar")
-    Assert.assertTrue("kotlin-main-kts.jar not found, run dist task: ${mainKtsJar.absolutePath}", mainKtsJar.exists())
-
     val (out, err, ret) = captureOutErrRet {
         CLITool.doMainNoExit(
             K2JVMCompiler(),
-            arrayOf("-kotlin-home", "dist/kotlinc", "-cp", mainKtsJar.absolutePath, "-script", scriptPath)
+            args
         )
     }
     try {
         val outLines = out.lines()
-        Assert.assertEquals(expectedOutPatterns.size, outLines.size)
+        Assert.assertEquals(
+            "Expecting pattern:\n  ${expectedOutPatterns.joinToString("\n  ")}\nGot:\n  ${outLines.joinToString("\n  ")}",
+            expectedOutPatterns.size, outLines.size
+        )
         for ((expectedPattern, actualLine) in expectedOutPatterns.zip(outLines)) {
             Assert.assertTrue(
                 "line \"$actualLine\" do not match with expected pattern \"$expectedPattern\"",
@@ -144,4 +164,23 @@ internal fun <T> captureOutErrRet(body: () -> T): Triple<String, String, T> {
     }
     return Triple(outStream.toString().trim(), errStream.toString().trim(), ret)
 }
+
+internal fun <R> withTempDir(keyName: String = "tmp", body: (File) -> R) {
+    val tempDir = Files.createTempDirectory(keyName).toFile()
+    try {
+        body(tempDir)
+    } finally {
+        tempDir.deleteRecursively()
+    }
+}
+
+internal fun <R> withDisposable(body: (Disposable) -> R) {
+    val disposable = Disposer.newDisposable()
+    try {
+        body(disposable)
+    } finally {
+        Disposer.dispose(disposable)
+    }
+}
+
 

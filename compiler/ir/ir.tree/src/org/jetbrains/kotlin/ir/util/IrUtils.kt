@@ -33,7 +33,7 @@ import org.jetbrains.kotlin.utils.DFS
  */
 fun IrMemberAccessExpression.getArguments(): List<Pair<ParameterDescriptor, IrExpression>> {
     val res = mutableListOf<Pair<ParameterDescriptor, IrExpression>>()
-    val descriptor = descriptor
+    val descriptor = symbol.descriptor as CallableDescriptor
 
     // TODO: ensure the order below corresponds to the one defined in Kotlin specs.
 
@@ -90,6 +90,10 @@ fun IrMemberAccessExpression.getArgumentsWithIr(): List<Pair<IrValueParameter, I
     val irFunction = when (this) {
         is IrFunctionAccessExpression -> this.symbol.owner
         is IrFunctionReference -> this.symbol.owner
+        is IrPropertyReference -> {
+            assert(this.field == null) { "Field should be null to use `getArgumentsWithIr` on IrPropertyReference: ${this.dump()}}" }
+            this.getter!!.owner
+        }
         else -> error(this)
     }
 
@@ -115,6 +119,7 @@ fun IrMemberAccessExpression.getArgumentsWithIr(): List<Pair<IrValueParameter, I
  * Sets arguments that are specified by given mapping of parameters.
  */
 fun IrMemberAccessExpression.addArguments(args: Map<ParameterDescriptor, IrExpression>) {
+    val descriptor = symbol.descriptor as CallableDescriptor
     descriptor.dispatchReceiverParameter?.let {
         val arg = args[it]
         if (arg != null) {
@@ -173,22 +178,28 @@ fun IrExpression.coerceToUnitIfNeeded(valueType: IrType, irBuiltIns: IrBuiltIns)
 }
 
 fun IrMemberAccessExpression.usesDefaultArguments(): Boolean =
-    this.descriptor.valueParameters.any { this.getValueArgument(it) == null }
+    (symbol.descriptor as CallableDescriptor).valueParameters.any { this.getValueArgument(it) == null }
 
 val DeclarationDescriptorWithSource.startOffset: Int? get() = (this.source as? PsiSourceElement)?.psi?.startOffset
 val DeclarationDescriptorWithSource.endOffset: Int? get() = (this.source as? PsiSourceElement)?.psi?.endOffset
 
-val IrClassSymbol.functions: Sequence<IrSimpleFunctionSymbol>
-    get() = this.owner.declarations.asSequence().filterIsInstance<IrSimpleFunction>().map { it.symbol }
-
 val IrClass.functions: Sequence<IrSimpleFunction>
-    get() = this.declarations.asSequence().filterIsInstance<IrSimpleFunction>()
+    get() = declarations.asSequence().filterIsInstance<IrSimpleFunction>()
 
-val IrClassSymbol.constructors: Sequence<IrConstructorSymbol>
-    get() = this.owner.declarations.asSequence().filterIsInstance<IrConstructor>().map { it.symbol }
+val IrClassSymbol.functions: Sequence<IrSimpleFunctionSymbol>
+    get() = owner.functions.map { it.symbol }
 
 val IrClass.constructors: Sequence<IrConstructor>
-    get() = this.declarations.asSequence().filterIsInstance<IrConstructor>()
+    get() = declarations.asSequence().filterIsInstance<IrConstructor>()
+
+val IrClassSymbol.constructors: Sequence<IrConstructorSymbol>
+    get() = owner.constructors.map { it.symbol }
+
+val IrClass.fields: Sequence<IrField>
+    get() = declarations.asSequence().filterIsInstance<IrField>()
+
+val IrClassSymbol.fields: Sequence<IrFieldSymbol>
+    get() = owner.fields.map { it.symbol }
 
 val IrClass.primaryConstructor: IrConstructor?
     get() = this.declarations.singleOrNull { it is IrConstructor && it.isPrimary } as IrConstructor?
@@ -214,7 +225,13 @@ val IrSimpleFunction.isSynthesized: Boolean get() = descriptor.kind == CallableM
 
 val IrDeclaration.isReal: Boolean get() = !isFakeOverride
 
-val IrDeclaration.isFakeOverride: Boolean get() = origin == IrDeclarationOrigin.FAKE_OVERRIDE
+val IrDeclaration.isFakeOverride: Boolean
+    get() = when (this) {
+        is IrSimpleFunction -> isFakeOverride
+        is IrProperty -> isFakeOverride
+        is IrField -> isFakeOverride
+        else -> false
+    }
 
 fun IrClass.isSubclassOf(ancestor: IrClass): Boolean {
 
@@ -330,8 +347,7 @@ tailrec fun IrElement.getPackageFragment(): IrPackageFragment? {
     val vParent = (this as? IrDeclaration)?.parent
     return when (vParent) {
         is IrPackageFragment -> vParent
-        is IrClass -> vParent.getPackageFragment()
-        else -> null
+        else -> vParent?.getPackageFragment()
     }
 }
 
@@ -361,13 +377,13 @@ fun IrFunction.isFakeOverriddenFromAny(): Boolean {
     return (this as IrSimpleFunction).overriddenSymbols.all { it.owner.isFakeOverriddenFromAny() }
 }
 
-fun IrCall.isSuperToAny() = superQualifier?.let { this.symbol.owner.isFakeOverriddenFromAny() } ?: false
+fun IrCall.isSuperToAny() = superQualifierSymbol?.let { this.symbol.owner.isFakeOverriddenFromAny() } ?: false
 
 fun IrDeclaration.isEffectivelyExternal(): Boolean {
 
     fun IrFunction.effectiveParentDeclaration(): IrDeclaration? =
         when (this) {
-            is IrSimpleFunction -> correspondingProperty ?: parent as? IrDeclaration
+            is IrSimpleFunction -> correspondingPropertySymbol?.owner ?: parent as? IrDeclaration
             else -> parent as? IrDeclaration
         }
 
@@ -466,7 +482,6 @@ fun irConstructorCall(
             endOffset,
             type,
             newSymbol,
-            newSymbol.descriptor,
             typeArgumentsCount,
             0,
             call.valueArgumentsCount,
@@ -484,20 +499,23 @@ fun irCall(
     call: IrFunctionAccessExpression,
     newFunction: IrFunction,
     receiversAsArguments: Boolean = false,
-    argumentsAsReceivers: Boolean = false
+    argumentsAsReceivers: Boolean = false,
+    newSuperQualifierSymbol: IrClassSymbol? = null
 ): IrCall =
     irCall(
         call,
         newFunction.symbol,
         receiversAsArguments,
-        argumentsAsReceivers
+        argumentsAsReceivers,
+        newSuperQualifierSymbol
     )
 
 fun irCall(
     call: IrFunctionAccessExpression,
     newSymbol: IrFunctionSymbol,
     receiversAsArguments: Boolean = false,
-    argumentsAsReceivers: Boolean = false
+    argumentsAsReceivers: Boolean = false,
+    newSuperQualifierSymbol: IrClassSymbol? = null
 ): IrCall =
     call.run {
         IrCallImpl(
@@ -505,9 +523,9 @@ fun irCall(
             endOffset,
             type,
             newSymbol,
-            newSymbol.descriptor,
             typeArgumentsCount,
-            origin
+            origin,
+            newSuperQualifierSymbol
         ).apply {
             copyTypeAndValueArgumentsFrom(
                 call,

@@ -933,6 +933,9 @@ public class KotlinExpressionParsing extends AbstractKotlinParsing {
             parseWhenCondition();
             if (!at(COMMA)) break;
             advance(); // COMMA
+            if (at(ARROW)) {
+                break;
+            }
         }
 
         expect(ARROW, "Expecting '->'", WHEN_CONDITION_RECOVERY_SET);
@@ -1032,21 +1035,12 @@ public class KotlinExpressionParsing extends AbstractKotlinParsing {
     }
 
     private void parseInnerExpressions(String missingElementErrorMessage) {
-        boolean firstElement = true;
         while (true) {
             if (at(COMMA)) errorAndAdvance(missingElementErrorMessage);
             if (at(RBRACKET)) {
-                if (firstElement) {
-                    break;
-                }
-                else {
-                    error(missingElementErrorMessage);
-                }
                 break;
             }
             parseExpression();
-
-            firstElement = false;
 
             if (!at(COMMA)) break;
             advance(); // COMMA
@@ -1202,6 +1196,9 @@ public class KotlinExpressionParsing extends AbstractKotlinParsing {
         PsiBuilder.Marker parameterList = mark();
 
         while (!eof()) {
+            if (at(ARROW)) {
+                break;
+            }
             PsiBuilder.Marker parameter = mark();
 
             if (at(COLON)) {
@@ -1264,7 +1261,7 @@ public class KotlinExpressionParsing extends AbstractKotlinParsing {
             else if (at(RBRACE)) {
                 break;
             }
-            else if (!myBuilder.newlineBeforeCurrentToken()) {
+            else if (!isScriptTopLevel && !myBuilder.newlineBeforeCurrentToken()) {
                 String severalStatementsError = "Unexpected tokens (use ';' to separate expressions on the same line)";
 
                 if (atSet(STATEMENT_NEW_LINE_QUICK_RECOVERY_SET)) {
@@ -1521,6 +1518,9 @@ public class KotlinExpressionParsing extends AbstractKotlinParsing {
                 expect(LPAR, "Expecting '('", recoverySet);
                 if (!atSet(recoverySet)) {
                     myKotlinParsing.parseValueParameter(/*typeRequired = */ true);
+                    if (at(COMMA)) {
+                        advance(); // trailing comma
+                    }
                     expect(RPAR, "Expecting ')'", recoverySet);
                 }
                 else {
@@ -1813,7 +1813,6 @@ public class KotlinExpressionParsing extends AbstractKotlinParsing {
                     }
                     advance(); // COMMA
                     if (at(RPAR)) {
-                        error("Expecting an argument");
                         break;
                     }
                 }

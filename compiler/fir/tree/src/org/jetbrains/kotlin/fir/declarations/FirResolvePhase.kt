@@ -9,12 +9,13 @@ enum class FirResolvePhase {
     RAW_FIR,
     IMPORTS,
     SUPER_TYPES,
+    SEALED_CLASS_INHERITORS,
     TYPES,
     STATUS,
     IMPLICIT_TYPES_BODY_RESOLVE,
     BODY_RESOLVE;
 
-    val prev: FirResolvePhase get() = values()[ordinal - 1]
+    val requiredToLaunch: FirResolvePhase get() = if (this == BODY_RESOLVE) STATUS else values()[ordinal - 1]
 
     val next: FirResolvePhase get() = values()[ordinal + 1]
 

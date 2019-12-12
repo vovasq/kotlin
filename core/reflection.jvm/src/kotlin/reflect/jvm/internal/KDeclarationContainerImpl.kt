@@ -25,11 +25,11 @@ import org.jetbrains.kotlin.resolve.scopes.MemberScope
 import java.lang.reflect.Constructor
 import java.lang.reflect.Method
 import kotlin.jvm.internal.ClassBasedDeclarationContainer
-import kotlin.reflect.jvm.internal.components.RuntimeModuleData
-import kotlin.reflect.jvm.internal.components.tryLoadClass
-import kotlin.reflect.jvm.internal.structure.createArrayType
-import kotlin.reflect.jvm.internal.structure.safeClassLoader
-import kotlin.reflect.jvm.internal.structure.wrapperByPrimitive
+import org.jetbrains.kotlin.descriptors.runtime.components.RuntimeModuleData
+import org.jetbrains.kotlin.descriptors.runtime.components.tryLoadClass
+import org.jetbrains.kotlin.descriptors.runtime.structure.createArrayType
+import org.jetbrains.kotlin.descriptors.runtime.structure.safeClassLoader
+import org.jetbrains.kotlin.descriptors.runtime.structure.wrapperByPrimitive
 
 internal abstract class KDeclarationContainerImpl : ClassBasedDeclarationContainer {
     abstract inner class Data {
@@ -136,7 +136,7 @@ internal abstract class KDeclarationContainerImpl : ClassBasedDeclarationContain
             }
 
             val allMembers = getProperties(Name.identifier(name)).joinToString("\n") { descriptor ->
-                DescriptorRenderer.DEBUG_TEXT.render(descriptor) + " | " + RuntimeTypeMapper.mapPropertySignature(descriptor)
+                DescriptorRenderer.DEBUG_TEXT.render(descriptor) + " | " + RuntimeTypeMapper.mapPropertySignature(descriptor).asString()
             }
             throw KotlinReflectionInternalError(
                 "Property '$name' (JVM signature: $signature) not resolved in $this:" +
@@ -155,7 +155,7 @@ internal abstract class KDeclarationContainerImpl : ClassBasedDeclarationContain
 
         if (functions.size != 1) {
             val allMembers = members.joinToString("\n") { descriptor ->
-                DescriptorRenderer.DEBUG_TEXT.render(descriptor) + " | " + RuntimeTypeMapper.mapSignature(descriptor)
+                DescriptorRenderer.DEBUG_TEXT.render(descriptor) + " | " + RuntimeTypeMapper.mapSignature(descriptor).asString()
             }
             throw KotlinReflectionInternalError(
                 "Function '$name' (JVM signature: $signature) not resolved in $this:" +

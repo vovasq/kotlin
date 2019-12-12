@@ -89,7 +89,10 @@ class CreateActualClassFix(
     klass: KtClassOrObject,
     actualModule: Module,
     actualPlatform: TargetPlatform
-) : CreateActualFix<KtClassOrObject>(klass, actualModule, actualPlatform, { project, checker, element ->
+) : CreateActualFix<KtClassOrObject>(klass, actualModule, actualPlatform, block@{ project, checker, element ->
+    checker.findAndApplyExistingClasses(element.collectDeclarationsForAddActualModifier().toList())
+    if (!checker.isCorrectAndHaveAccessibleModifiers(element, true)) return@block null
+
     generateClassOrObject(project, false, element, checker = checker)
 })
 
@@ -97,7 +100,9 @@ class CreateActualCallableMemberFix(
     declaration: KtCallableDeclaration,
     actualModule: Module,
     actualPlatform: TargetPlatform
-) : CreateActualFix<KtCallableDeclaration>(declaration, actualModule, actualPlatform, { project, checker, element ->
+) : CreateActualFix<KtCallableDeclaration>(declaration, actualModule, actualPlatform, block@{ project, checker, element ->
+    if (!checker.isCorrectAndHaveAccessibleModifiers(element, true)) return@block null
+
     val descriptor = element.toDescriptor() as? CallableMemberDescriptor
     descriptor?.let { generateCallable(project, false, element, descriptor, checker = checker) }
 })

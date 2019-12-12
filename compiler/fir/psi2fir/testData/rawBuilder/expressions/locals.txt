@@ -1,8 +1,8 @@
 FILE: locals.kt
     public? final? fun withLocals(p: Int): Int {
-        local final? class Local : kotlin/Any {
+        local final? class Local : R|kotlin/Any| {
             public? constructor(pp: Int): R|Local| {
-                super<kotlin/Any>()
+                super<R|kotlin/Any|>()
             }
 
             public? final? val pp: Int = R|<local>/pp|
@@ -14,7 +14,7 @@ FILE: locals.kt
 
         }
 
-        lval x: <implicit> = Local#(Int(42)).diff#()
+        lval x: <implicit> = Local#(IntegerLiteral(42)).diff#()
         local final? fun sum(y: Int, z: Int, f: ( (Int, Int) -> Int )): Int {
             ^sum x#.plus#(f#(y#.plus#(z#)))
         }
@@ -30,7 +30,7 @@ FILE: locals.kt
 
         }
         .foo#()
-        ^withLocals sum#(code#, Local#(Int(1)).diff#(), fun <anonymous>(x: Int, y: Int): <implicit> {
+        ^withLocals sum#(code#, Local#(IntegerLiteral(1)).diff#(), fun <anonymous>(x: Int, y: Int): <implicit> {
             ^ x#.plus#(y#)
         }
         )

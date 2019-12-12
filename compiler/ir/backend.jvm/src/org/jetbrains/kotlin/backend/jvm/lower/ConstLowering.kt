@@ -5,19 +5,20 @@
 
 package org.jetbrains.kotlin.backend.jvm.lower
 
-import org.jetbrains.kotlin.backend.common.CommonBackendContext
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
+import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
-import org.jetbrains.kotlin.ir.expressions.IrCall
-import org.jetbrains.kotlin.ir.expressions.IrConst
-import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.expressions.IrGetField
+import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrGetFieldImpl
+import org.jetbrains.kotlin.ir.types.isPrimitiveType
+import org.jetbrains.kotlin.ir.types.isStringClassType
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
-import org.jetbrains.kotlin.ir.visitors.transformChildrenVoid
 
 internal val constPhase = makeIrFilePhase(
     ::ConstLowering,
@@ -25,27 +26,42 @@ internal val constPhase = makeIrFilePhase(
     description = "Substitute calls to const properties with constant values"
 )
 
-fun IrField.constantValue(implicitConst: Boolean = false): IrConst<*>? {
-    // javac always inlines reads of static final fields, so do that for ones imported from Java.
-    // Kotlin fields are only inlined if explicitly `const` to avoid making the values part of the ABI.
-    val inline = correspondingPropertySymbol?.owner?.isConst == true ||
-            (isStatic && isFinal && (origin == IrDeclarationOrigin.IR_EXTERNAL_JAVA_DECLARATION_STUB || implicitConst))
-    return if (inline) initializer?.expression as? IrConst<*> else null
+fun IrField.constantValue(context: JvmBackendContext? = null): IrConst<*>? {
+    val value = initializer?.expression as? IrConst<*> ?: return null
+    // JVM has a ConstantValue attribute which does two things:
+    //   1. allows the field to be inlined into other modules;
+    //   2. implicitly generates an initialization of that field in <clinit>
+    // It is only allowed on final fields of primitive/string types. Java and Kotlin < 1.4
+    // apply it whenever possible; Kotlin >= 1.4 only applies it to `const val`s to avoid making
+    // values part of the library's ABI unless explicitly requested by the author.
+    val allowImplicitConst =
+        context != null && !context.state.languageVersionSettings.supportsFeature(LanguageFeature.NoConstantValueAttributeForNonConstVals)
+    val implicitConst = isFinal && ((isStatic && origin == IrDeclarationOrigin.IR_EXTERNAL_JAVA_DECLARATION_STUB) ||
+            (allowImplicitConst && (type.isPrimitiveType() || type.isStringClassType())))
+    return if (implicitConst || correspondingPropertySymbol?.owner?.isConst == true) value else null
 }
 
-class ConstLowering(val context: CommonBackendContext) : IrElementTransformerVoid(), FileLoweringPass {
-    override fun lower(irFile: IrFile) {
-        irFile.transformChildrenVoid(this)
+private fun <T> IrConst<T>.copyWithOffsets(startOffset: Int, endOffset: Int) =
+    IrConstImpl(startOffset, endOffset, type, kind, value)
+
+class ConstLowering(val context: JvmBackendContext) : IrElementTransformerVoid(), FileLoweringPass {
+    override fun lower(irFile: IrFile) = irFile.transformChildrenVoid()
+
+    private fun IrExpression.lowerConstRead(field: IrField?): IrExpression? {
+        val value = field?.constantValue() ?: return null
+        return if (context.state.shouldInlineConstVals)
+            value.copyWithOffsets(startOffset, endOffset)
+        else
+            IrGetFieldImpl(startOffset, endOffset, field.symbol, field.type)
     }
 
     override fun visitCall(expression: IrCall): IrExpression {
         val function = (expression.symbol.owner as? IrSimpleFunction) ?: return super.visitCall(expression)
         val property = function.correspondingPropertySymbol?.owner ?: return super.visitCall(expression)
-        if (function != property.getter)
-            return super.visitCall(expression)
-        return property.backingField?.constantValue() ?: super.visitCall(expression)
+        // If `constantValue` is not null, `function` can only be the getter because the property is immutable.
+        return expression.lowerConstRead(property.backingField) ?: super.visitCall(expression)
     }
 
     override fun visitGetField(expression: IrGetField): IrExpression =
-        expression.symbol.owner.constantValue() ?: super.visitGetField(expression)
+        expression.lowerConstRead(expression.symbol.owner) ?: super.visitGetField(expression)
 }

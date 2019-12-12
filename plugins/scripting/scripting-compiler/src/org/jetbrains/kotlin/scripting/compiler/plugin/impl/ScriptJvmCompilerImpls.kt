@@ -12,23 +12,24 @@ import org.jetbrains.kotlin.cli.jvm.compiler.NoScopeRecordCliBindingTrace
 import org.jetbrains.kotlin.cli.jvm.compiler.TopDownAnalyzerFacadeForJVM
 import org.jetbrains.kotlin.cli.jvm.config.jvmClasspathRoots
 import org.jetbrains.kotlin.codegen.ClassBuilderFactories
-import org.jetbrains.kotlin.codegen.CompilationErrorHandler
 import org.jetbrains.kotlin.codegen.KotlinCodegenFacade
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.psi.KtFile
-import org.jetbrains.kotlin.scripting.compiler.plugin.ScriptJvmCompilerProxy
+import org.jetbrains.kotlin.resolve.jvm.extensions.PackageFragmentProviderExtension
+import org.jetbrains.kotlin.scripting.compiler.plugin.ScriptCompilerProxy
 import org.jetbrains.kotlin.scripting.compiler.plugin.dependencies.ScriptsCompilationDependencies
 import org.jetbrains.kotlin.scripting.definitions.ScriptDependenciesProvider
 import kotlin.script.experimental.api.*
 import kotlin.script.experimental.host.ScriptingHostConfiguration
 import kotlin.script.experimental.jvm.JvmDependency
+import kotlin.script.experimental.jvm.JvmDependencyFromClassLoader
 import kotlin.script.experimental.jvm.compilationCache
 import kotlin.script.experimental.jvm.impl.KJvmCompiledScript
 import kotlin.script.experimental.jvm.jvm
 
-class ScriptJvmCompilerIsolated(val hostConfiguration: ScriptingHostConfiguration) : ScriptJvmCompilerProxy {
+class ScriptJvmCompilerIsolated(val hostConfiguration: ScriptingHostConfiguration) : ScriptCompilerProxy {
 
     override fun compile(
         script: SourceCode,
@@ -48,7 +49,7 @@ class ScriptJvmCompilerIsolated(val hostConfiguration: ScriptingHostConfiguratio
         }
 }
 
-class ScriptJvmCompilerFromEnvironment(val environment: KotlinCoreEnvironment) : ScriptJvmCompilerProxy {
+class ScriptJvmCompilerFromEnvironment(val environment: KotlinCoreEnvironment) : ScriptCompilerProxy {
 
     override fun compile(
         script: SourceCode,
@@ -98,7 +99,7 @@ private fun compileImpl(
 
     val dependenciesProvider = ScriptDependenciesProvider.getInstance(context.environment.project)
     val getScriptConfiguration = { ktFile: KtFile ->
-        (dependenciesProvider?.getScriptConfigurationResult(ktFile)?.valueOrNull()?.configuration ?: context.baseScriptCompilationConfiguration)
+        (dependenciesProvider?.getScriptConfiguration(ktFile)?.configuration ?: context.baseScriptCompilationConfiguration)
             .with {
                 // Adjust definitions so all compiler dependencies are saved in the resulting compilation configuration, so evaluation
                 // performed with the expected classpath
@@ -130,6 +131,23 @@ private fun compileImpl(
         }
 }
 
+internal fun registerPackageFragmetProvidersIfNeeded(
+    scriptCompilationConfiguration: ScriptCompilationConfiguration,
+    environment: KotlinCoreEnvironment
+) {
+    scriptCompilationConfiguration[ScriptCompilationConfiguration.dependencies]?.forEach { dependency ->
+        if (dependency is JvmDependencyFromClassLoader) {
+            // TODO: consider implementing deduplication
+            PackageFragmentProviderExtension.registerExtension(
+                environment.project,
+                PackageFragmentFromClassLoaderProviderExtension(
+                    dependency.classLoaderGetter, scriptCompilationConfiguration, environment.configuration
+                )
+            )
+        }
+    }
+}
+
 private fun doCompile(
     context: SharedScriptCompilationContext,
     script: SourceCode,
@@ -138,6 +156,9 @@ private fun doCompile(
     messageCollector: ScriptDiagnosticsMessageCollector,
     getScriptConfiguration: (KtFile) -> ScriptCompilationConfiguration
 ): ResultWithDiagnostics<KJvmCompiledScript<Any>> {
+
+    registerPackageFragmetProvidersIfNeeded(getScriptConfiguration(sourceFiles.first()), context.environment)
+
     val analysisResult = analyze(sourceFiles, context.environment)
 
     if (!analysisResult.shouldGenerateCode) return failure(
@@ -184,16 +205,11 @@ private fun analyze(sourceFiles: Collection<KtFile>, environment: KotlinCoreEnvi
 
 private fun generate(
     analysisResult: AnalysisResult, sourceFiles: List<KtFile>, kotlinCompilerConfiguration: CompilerConfiguration
-): GenerationState {
-    val generationState = GenerationState.Builder(
-        sourceFiles.first().project,
-        ClassBuilderFactories.BINARIES,
-        analysisResult.moduleDescriptor,
-        analysisResult.bindingContext,
-        sourceFiles,
-        kotlinCompilerConfiguration
-    ).build()
-
-    KotlinCodegenFacade.compileCorrectFiles(generationState, CompilationErrorHandler.THROW_EXCEPTION)
-    return generationState
-}
+): GenerationState = GenerationState.Builder(
+    sourceFiles.first().project,
+    ClassBuilderFactories.BINARIES,
+    analysisResult.moduleDescriptor,
+    analysisResult.bindingContext,
+    sourceFiles,
+    kotlinCompilerConfiguration
+).build().also(KotlinCodegenFacade::compileCorrectFiles)

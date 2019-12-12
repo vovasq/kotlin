@@ -29,7 +29,6 @@ import org.jetbrains.kotlin.descriptors.*;
 import org.jetbrains.kotlin.descriptors.annotations.Annotated;
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationDescriptor;
 import org.jetbrains.kotlin.descriptors.impl.AnonymousFunctionDescriptor;
-import org.jetbrains.kotlin.descriptors.impl.ValueParameterDescriptorImpl;
 import org.jetbrains.kotlin.load.java.BuiltinMethodsWithSpecialGenericSignature;
 import org.jetbrains.kotlin.load.java.JvmAbi;
 import org.jetbrains.kotlin.load.java.SpecialBuiltinMembers;
@@ -453,7 +452,10 @@ public class FunctionCodegen {
             boolean staticInCompanionObject
     ) {
         OwnerKind contextKind = methodContext.getContextKind();
-        if (!state.getClassBuilderMode().generateBodies || isAbstractMethod(functionDescriptor, contextKind)) {
+        if (!state.getClassBuilderMode().generateBodies
+            || isAbstractMethod(functionDescriptor, contextKind)
+            || shouldSkipMethodBodyInAbiMode(state.getClassBuilderMode(), origin)
+        ) {
             generateLocalVariableTable(
                     mv,
                     jvmSignature,
@@ -487,6 +489,13 @@ public class FunctionCodegen {
         endVisit(mv, null, origin.getElement());
     }
 
+    private static boolean shouldSkipMethodBodyInAbiMode(@NotNull ClassBuilderMode classBuilderMode, @NotNull JvmDeclarationOrigin origin) {
+        if (classBuilderMode != ClassBuilderMode.ABI) return false;
+
+        DeclarationDescriptor descriptor = origin.getDescriptor();
+        return descriptor != null && !InlineUtil.isInlineOrContainingInline(descriptor);
+    }
+
     public static void generateParameterAnnotations(
             @NotNull FunctionDescriptor functionDescriptor,
             @NotNull MethodVisitor mv,
@@ -511,22 +520,9 @@ public class FunctionCodegen {
 
         Iterator<ValueParameterDescriptor> iterator = valueParameters.iterator();
         List<JvmMethodParameterSignature> kotlinParameterTypes = jvmSignature.getValueParameters();
-        int syntheticParameterCount = 0;
-        for (int i = 0; i < kotlinParameterTypes.size(); i++) {
-            JvmMethodParameterSignature parameterSignature = kotlinParameterTypes.get(i);
-            JvmMethodParameterKind kind = parameterSignature.getKind();
-            if (kind.isSkippedInGenericSignature()) {
-                if (AsmUtil.IS_BUILT_WITH_ASM6) {
-                    markEnumOrInnerConstructorParameterAsSynthetic(mv, i, state.getClassBuilderMode());
-                }
-                else {
-                    syntheticParameterCount++;
-                }
-            }
-        }
-        if (!AsmUtil.IS_BUILT_WITH_ASM6) {
-            Asm7UtilKt.visitAnnotableParameterCount(mv, kotlinParameterTypes.size() - syntheticParameterCount);
-        }
+        int syntheticParameterCount = CollectionsKt.count(kotlinParameterTypes, signature -> signature.getKind().isSkippedInGenericSignature());
+
+        Asm7UtilKt.visitAnnotableParameterCount(mv, kotlinParameterTypes.size() - syntheticParameterCount);
 
         for (int i = 0; i < kotlinParameterTypes.size(); i++) {
             JvmMethodParameterSignature parameterSignature = kotlinParameterTypes.get(i);
@@ -544,22 +540,9 @@ public class FunctionCodegen {
 
             if (annotated != null) {
                 //noinspection ConstantConditions
-                AnnotationCodegen.forParameter(AsmUtil.IS_BUILT_WITH_ASM6 ? i : i - syntheticParameterCount, mv, innerClassConsumer, state)
+                AnnotationCodegen.forParameter(i - syntheticParameterCount, mv, innerClassConsumer, state)
                         .genAnnotations(annotated, parameterSignature.getAsmType());
             }
-        }
-    }
-
-    private static void markEnumOrInnerConstructorParameterAsSynthetic(MethodVisitor mv, int i, ClassBuilderMode mode) {
-        // IDEA's ClsPsi builder fails to annotate synthetic parameters
-        if (mode == ClassBuilderMode.LIGHT_CLASSES) return;
-
-        // This is needed to avoid RuntimeInvisibleParameterAnnotations error in javac:
-        // see MethodWriter.visitParameterAnnotation()
-
-        AnnotationVisitor av = mv.visitParameterAnnotation(i, "Ljava/lang/Synthetic;", true);
-        if (av != null) {
-            av.visitEnd();
         }
     }
 
@@ -767,7 +750,7 @@ public class FunctionCodegen {
         generateLocalVariablesForParameters(mv,
                                             jvmMethodSignature, functionDescriptor,
                                             thisType, methodBegin, methodEnd, functionDescriptor.getValueParameters(),
-                                            AsmUtil.isStaticMethod(ownerKind, functionDescriptor), state, shiftForDestructuringVariables
+                                            AsmUtil.isStaticMethod(ownerKind, functionDescriptor), state
         );
     }
 
@@ -781,24 +764,6 @@ public class FunctionCodegen {
             Collection<ValueParameterDescriptor> valueParameters,
             boolean isStatic,
             @NotNull GenerationState state
-    ) {
-        generateLocalVariablesForParameters(
-                mv, jvmMethodSignature, functionDescriptor,
-                thisType, methodBegin, methodEnd, valueParameters, isStatic, state,
-                0);
-    }
-
-    private static void generateLocalVariablesForParameters(
-            @NotNull MethodVisitor mv,
-            @NotNull JvmMethodSignature jvmMethodSignature,
-            @NotNull FunctionDescriptor functionDescriptor,
-            @Nullable Type thisType,
-            @NotNull Label methodBegin,
-            @NotNull Label methodEnd,
-            Collection<ValueParameterDescriptor> valueParameters,
-            boolean isStatic,
-            @NotNull GenerationState state,
-            int shiftForDestructuringVariables
     ) {
         Iterator<ValueParameterDescriptor> valueParameterIterator = valueParameters.iterator();
         List<JvmMethodParameterSignature> params = jvmMethodSignature.getValueParameters();
@@ -845,30 +810,6 @@ public class FunctionCodegen {
             mv.visitLocalVariable(parameterName, type.getDescriptor(), null, methodBegin, methodEnd, shift);
             shift += type.getSize();
         }
-
-        shift += shiftForDestructuringVariables;
-        generateDestructuredParameterEntries(mv, methodBegin, methodEnd, valueParameters, typeMapper, shift);
-    }
-
-    private static int generateDestructuredParameterEntries(
-            @NotNull MethodVisitor mv,
-            @NotNull Label methodBegin,
-            @NotNull Label methodEnd,
-            Collection<ValueParameterDescriptor> valueParameters,
-            KotlinTypeMapper typeMapper,
-            int shift
-    ) {
-        for (ValueParameterDescriptor parameter : valueParameters) {
-            List<VariableDescriptor> destructuringVariables = ValueParameterDescriptorImpl.getDestructuringVariablesOrNull(parameter);
-            if (destructuringVariables == null) continue;
-
-            for (VariableDescriptor entry : CodegenUtilKt.filterOutDescriptorsWithSpecialNames(destructuringVariables)) {
-                Type type = typeMapper.mapType(entry.getType());
-                mv.visitLocalVariable(entry.getName().asString(), type.getDescriptor(), null, methodBegin, methodEnd, shift);
-                shift += type.getSize();
-            }
-        }
-        return shift;
     }
 
     private static String computeParameterName(int i, ValueParameterDescriptor parameter) {
@@ -1366,7 +1307,9 @@ public class FunctionCodegen {
 
     private boolean isDefaultNeeded(@NotNull FunctionDescriptor descriptor, @Nullable KtNamedFunction function) {
         List<ValueParameterDescriptor> parameters =
-                CodegenUtil.getFunctionParametersForDefaultValueGeneration(descriptor, state.getDiagnostics());
+                CodegenUtil.getFunctionParametersForDefaultValueGeneration(
+                        descriptor.isSuspend() ? CoroutineCodegenUtilKt.unwrapInitialDescriptorForSuspendFunction(descriptor) : descriptor,
+                        state.getDiagnostics());
         return CollectionsKt.any(parameters, ValueParameterDescriptor::declaresDefaultValue);
     }
 

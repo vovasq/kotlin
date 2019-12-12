@@ -9,6 +9,10 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJsTargetPreset
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinJvmTargetPreset
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTargetPreset
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTargetWithHostTests
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTargetWithHostTestsPreset
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTargetWithSimulatorTests
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTargetWithSimulatorTestsPreset
 import org.jetbrains.kotlin.gradle.targets.js.KotlinJsTarget
 import org.jetbrains.kotlin.gradle.targets.jvm.KotlinJvmTarget
 
@@ -91,6 +95,21 @@ interface KotlinTargetContainerWithPresetFunctions : KotlinTargetsContainerWithP
     fun androidNativeArm64(name: String, configure: Closure<*>) = androidNativeArm64(name) { ConfigureUtil.configure(configure, this) }
     fun androidNativeArm64(configure: Closure<*>) = androidNativeArm64 { ConfigureUtil.configure(configure, this) }
 
+    fun androidNativeX86(
+        name: String = "androidNativeX86",
+        configure: KotlinNativeTarget.() -> Unit = { }
+    ): KotlinNativeTarget =
+        configureOrCreate(
+            name,
+            presets.getByName("androidNativeX86") as KotlinNativeTargetPreset,
+            configure
+        )
+
+    fun androidNativeX86() = androidNativeX86("androidNativeX86") { }
+    fun androidNativeX86(name: String) = androidNativeX86(name) { }
+    fun androidNativeX86(name: String, configure: Closure<*>) = androidNativeX86(name) { ConfigureUtil.configure(configure, this) }
+    fun androidNativeX86(configure: Closure<*>) = androidNativeX86 { ConfigureUtil.configure(configure, this) }
+
     fun androidNativeX64(
         name: String = "androidNativeX64",
         configure: KotlinNativeTarget.() -> Unit = { }
@@ -138,11 +157,11 @@ interface KotlinTargetContainerWithPresetFunctions : KotlinTargetsContainerWithP
 
     fun iosX64(
         name: String = "iosX64",
-        configure: KotlinNativeTarget.() -> Unit = { }
-    ): KotlinNativeTarget =
+        configure: KotlinNativeTargetWithSimulatorTests.() -> Unit = { }
+    ): KotlinNativeTargetWithSimulatorTests =
         configureOrCreate(
             name,
-            presets.getByName("iosX64") as KotlinNativeTargetPreset,
+            presets.getByName("iosX64") as KotlinNativeTargetWithSimulatorTestsPreset,
             configure
         )
 
@@ -150,6 +169,21 @@ interface KotlinTargetContainerWithPresetFunctions : KotlinTargetsContainerWithP
     fun iosX64(name: String) = iosX64(name) { }
     fun iosX64(name: String, configure: Closure<*>) = iosX64(name) { ConfigureUtil.configure(configure, this) }
     fun iosX64(configure: Closure<*>) = iosX64 { ConfigureUtil.configure(configure, this) }
+
+    fun watchosArm32(
+        name: String = "watchosArm32",
+        configure: KotlinNativeTarget.() -> Unit = { }
+    ): KotlinNativeTarget =
+        configureOrCreate(
+            name,
+            presets.getByName("watchosArm32") as KotlinNativeTargetPreset,
+            configure
+        )
+
+    fun watchosArm32() = watchosArm32("watchosArm32") { }
+    fun watchosArm32(name: String) = watchosArm32(name) { }
+    fun watchosArm32(name: String, configure: Closure<*>) = watchosArm32(name) { ConfigureUtil.configure(configure, this) }
+    fun watchosArm32(configure: Closure<*>) = watchosArm32 { ConfigureUtil.configure(configure, this) }
 
     fun watchosArm64(
         name: String = "watchosArm64",
@@ -166,20 +200,20 @@ interface KotlinTargetContainerWithPresetFunctions : KotlinTargetsContainerWithP
     fun watchosArm64(name: String, configure: Closure<*>) = watchosArm64(name) { ConfigureUtil.configure(configure, this) }
     fun watchosArm64(configure: Closure<*>) = watchosArm64 { ConfigureUtil.configure(configure, this) }
 
-    fun watchosX64(
-        name: String = "watchosX64",
-        configure: KotlinNativeTarget.() -> Unit = { }
-    ): KotlinNativeTarget =
+    fun watchosX86(
+        name: String = "watchosX86",
+        configure: KotlinNativeTargetWithSimulatorTests.() -> Unit = { }
+    ): KotlinNativeTargetWithSimulatorTests =
         configureOrCreate(
             name,
-            presets.getByName("watchosX64") as KotlinNativeTargetPreset,
+            presets.getByName("watchosX86") as KotlinNativeTargetWithSimulatorTestsPreset,
             configure
         )
 
-    fun watchosX64() = watchosX64("watchosX64") { }
-    fun watchosX64(name: String) = watchosX64(name) { }
-    fun watchosX64(name: String, configure: Closure<*>) = watchosX64(name) { ConfigureUtil.configure(configure, this) }
-    fun watchosX64(configure: Closure<*>) = watchosX64 { ConfigureUtil.configure(configure, this) }
+    fun watchosX86() = watchosX86("watchosX86") { }
+    fun watchosX86(name: String) = watchosX86(name) { }
+    fun watchosX86(name: String, configure: Closure<*>) = watchosX86(name) { ConfigureUtil.configure(configure, this) }
+    fun watchosX86(configure: Closure<*>) = watchosX86 { ConfigureUtil.configure(configure, this) }
 
     fun tvosArm64(
         name: String = "tvosArm64",
@@ -198,11 +232,11 @@ interface KotlinTargetContainerWithPresetFunctions : KotlinTargetsContainerWithP
 
     fun tvosX64(
         name: String = "tvosX64",
-        configure: KotlinNativeTarget.() -> Unit = { }
-    ): KotlinNativeTarget =
+        configure: KotlinNativeTargetWithSimulatorTests.() -> Unit = { }
+    ): KotlinNativeTargetWithSimulatorTests =
         configureOrCreate(
             name,
-            presets.getByName("tvosX64") as KotlinNativeTargetPreset,
+            presets.getByName("tvosX64") as KotlinNativeTargetWithSimulatorTestsPreset,
             configure
         )
 
@@ -213,11 +247,11 @@ interface KotlinTargetContainerWithPresetFunctions : KotlinTargetsContainerWithP
 
     fun linuxX64(
         name: String = "linuxX64",
-        configure: KotlinNativeTarget.() -> Unit = { }
-    ): KotlinNativeTarget =
+        configure: KotlinNativeTargetWithHostTests.() -> Unit = { }
+    ): KotlinNativeTargetWithHostTests =
         configureOrCreate(
             name,
-            presets.getByName("linuxX64") as KotlinNativeTargetPreset,
+            presets.getByName("linuxX64") as KotlinNativeTargetWithHostTestsPreset,
             configure
         )
 
@@ -288,11 +322,11 @@ interface KotlinTargetContainerWithPresetFunctions : KotlinTargetsContainerWithP
 
     fun mingwX64(
         name: String = "mingwX64",
-        configure: KotlinNativeTarget.() -> Unit = { }
-    ): KotlinNativeTarget =
+        configure: KotlinNativeTargetWithHostTests.() -> Unit = { }
+    ): KotlinNativeTargetWithHostTests =
         configureOrCreate(
             name,
-            presets.getByName("mingwX64") as KotlinNativeTargetPreset,
+            presets.getByName("mingwX64") as KotlinNativeTargetWithHostTestsPreset,
             configure
         )
 
@@ -318,11 +352,11 @@ interface KotlinTargetContainerWithPresetFunctions : KotlinTargetsContainerWithP
 
     fun macosX64(
         name: String = "macosX64",
-        configure: KotlinNativeTarget.() -> Unit = { }
-    ): KotlinNativeTarget =
+        configure: KotlinNativeTargetWithHostTests.() -> Unit = { }
+    ): KotlinNativeTargetWithHostTests =
         configureOrCreate(
             name,
-            presets.getByName("macosX64") as KotlinNativeTargetPreset,
+            presets.getByName("macosX64") as KotlinNativeTargetWithHostTestsPreset,
             configure
         )
 

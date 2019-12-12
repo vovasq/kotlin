@@ -5,6 +5,7 @@ plugins {
 }
 
 dependencies {
+    testCompile(project(":kotlin-scripting-compiler"))
     testCompile(project(":core:descriptors"))
     testCompile(project(":core:descriptors.jvm"))
     testCompile(project(":core:deserialization"))
@@ -12,6 +13,7 @@ dependencies {
     testCompile(project(":compiler:backend"))
     testCompile(project(":compiler:fir:tree"))
     testCompile(project(":compiler:fir:psi2fir"))
+    testCompile(project(":compiler:fir:lightTree"))
     testCompile(project(":compiler:fir:fir2ir"))
     testCompile(project(":compiler:fir:cones"))
     testCompile(project(":compiler:fir:resolve"))
@@ -65,6 +67,10 @@ dependencies {
 
     Platform[192].orHigher {
         testCompile(intellijDep()) { includeJars("platform-util-ui", "platform-concurrency", "platform-objectSerializer") }
+    }
+
+    Platform[193].orHigher {
+        testCompile(intellijDep()) { includeJars("platform-ide-util-io") }
     }
 }
 

@@ -6,21 +6,17 @@
 package org.jetbrains.kotlin.fir.resolve.transformers
 
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.FirSymbolOwner
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirFile
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
-import org.jetbrains.kotlin.fir.render
-import org.jetbrains.kotlin.fir.resolve.FirProvider
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
-import org.jetbrains.kotlin.fir.symbols.ConeCallableSymbol
-import org.jetbrains.kotlin.fir.symbols.ConeClassLikeSymbol
-import org.jetbrains.kotlin.fir.symbols.FirSymbolOwner
 import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
-import org.jetbrains.kotlin.fir.visitors.FirTransformer
+import org.jetbrains.kotlin.fir.visitors.FirDefaultTransformer
 
 abstract class FirAbstractPhaseTransformer<D>(
-    protected val transformerPhase: FirResolvePhase
-) : FirTransformer<D>() {
+    val transformerPhase: FirResolvePhase
+) : FirDefaultTransformer<D>() {
 
     abstract val session: FirSession
 
@@ -32,12 +28,19 @@ abstract class FirAbstractPhaseTransformer<D>(
 
     open val <D> AbstractFirBasedSymbol<D>.phasedFir: D where D : FirDeclaration, D : FirSymbolOwner<D>
         get() {
-            val requiredPhase = transformerPhase.prev
+            val requiredPhase = transformerPhase.requiredToLaunch
             return phasedFir(session, requiredPhase)
         }
 
+    override fun transformFile(file: FirFile, data: D): CompositeTransformResult<FirFile> {
+        file.replaceResolvePhase(transformerPhase)
+
+        @Suppress("UNCHECKED_CAST")
+        return super.transformFile(file, data) as CompositeTransformResult<FirFile>
+    }
+
     override fun transformDeclaration(declaration: FirDeclaration, data: D): CompositeTransformResult<FirDeclaration> {
-        declaration.resolvePhase = transformerPhase
+        declaration.replaceResolvePhase(transformerPhase)
 
         return super.transformDeclaration(declaration, data)
     }

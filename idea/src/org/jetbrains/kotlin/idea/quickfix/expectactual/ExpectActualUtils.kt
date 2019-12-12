@@ -5,10 +5,12 @@
 
 package org.jetbrains.kotlin.idea.quickfix.expectactual
 
+import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.JavaDirectoryService
+import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.annotations.AnnotationDescriptor
 import org.jetbrains.kotlin.descriptors.annotations.Annotations
@@ -24,17 +26,19 @@ import org.jetbrains.kotlin.idea.core.overrideImplement.OverrideMemberChooserObj
 import org.jetbrains.kotlin.idea.core.overrideImplement.generateMember
 import org.jetbrains.kotlin.idea.core.overrideImplement.makeNotActual
 import org.jetbrains.kotlin.idea.core.toDescriptor
+import org.jetbrains.kotlin.idea.inspections.findExistingEditor
 import org.jetbrains.kotlin.idea.quickfix.TypeAccessibilityChecker
 import org.jetbrains.kotlin.idea.refactoring.createKotlinFile
 import org.jetbrains.kotlin.idea.refactoring.fqName.fqName
-import org.jetbrains.kotlin.idea.util.IdeDescriptorRenderers
+import org.jetbrains.kotlin.idea.refactoring.introduce.showErrorHint
+import org.jetbrains.kotlin.idea.refactoring.isInterfaceClass
+import org.jetbrains.kotlin.idea.util.*
 import org.jetbrains.kotlin.idea.util.application.runWriteAction
-import org.jetbrains.kotlin.idea.util.hasInlineModifier
-import org.jetbrains.kotlin.idea.util.isEffectivelyActual
-import org.jetbrains.kotlin.idea.util.mustHaveValOrVar
+import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.*
+import org.jetbrains.kotlin.psi.psiUtil.containingClassOrObject
 import org.jetbrains.kotlin.psi.psiUtil.hasActualModifier
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.checkers.ExpectedActualDeclarationChecker
@@ -266,7 +270,7 @@ internal fun generateCallable(
     generatedClass: KtClassOrObject? = null,
     checker: TypeAccessibilityChecker
 ): KtCallableDeclaration {
-    if (generateExpect) descriptor.checkAccessibility(checker)
+    descriptor.checkAccessibility(checker)
     val memberChooserObject = create(
         originalDeclaration, descriptor, descriptor,
         if (generateExpect || descriptor.modality == Modality.ABSTRACT) NO_BODY else EMPTY_OR_TEMPLATE
@@ -373,9 +377,70 @@ private fun AnnotationDescriptor.isValidInModule(checker: TypeAccessibilityCheck
 }
 
 class KotlinTypeInaccessibleException(fqNames: Collection<FqName?>) : Exception() {
-    override val message: String =
-        "${StringUtil.pluralize("Type", fqNames.size)} ${fqNames.joinToString()} is not accessible from common code"
+    override val message: String = "${StringUtil.pluralize(
+        "Type",
+        fqNames.size
+    )} ${TypeAccessibilityChecker.typesToString(fqNames)} is not accessible from target module"
 }
 
 fun KtNamedDeclaration.isAlwaysActual(): Boolean = safeAs<KtParameter>()?.parent?.parent?.safeAs<KtPrimaryConstructor>()
     ?.mustHaveValOrVar() ?: false
+
+
+fun TypeAccessibilityChecker.isCorrectAndHaveAccessibleModifiers(declaration: KtNamedDeclaration, showErrorHint: Boolean = false): Boolean {
+    if (declaration.anyInaccessibleModifier(INACCESSIBLE_MODIFIERS, showErrorHint)) return false
+
+    if (declaration is KtFunction && declaration.hasBody() && declaration.containingClassOrObject?.isInterfaceClass() == true) {
+        if (showErrorHint) showInaccessibleDeclarationError(declaration, "The function declaration shouldn't have a default implementation")
+        return false
+    }
+
+    if (!showErrorHint) return checkAccessibility(declaration)
+
+    val types = incorrectTypes(declaration).ifEmpty { return true }
+    showInaccessibleDeclarationError(
+        declaration,
+        "Some types are not accessible from ${targetModule.name}:\n" + TypeAccessibilityChecker.typesToString(
+            types
+        )
+    )
+
+    return false
+}
+
+private val INACCESSIBLE_MODIFIERS = listOf(KtTokens.PRIVATE_KEYWORD, KtTokens.CONST_KEYWORD, KtTokens.LATEINIT_KEYWORD)
+
+private fun KtModifierListOwner.anyInaccessibleModifier(modifiers: Collection<KtModifierKeywordToken>, showErrorHint: Boolean): Boolean {
+    for (modifier in modifiers) {
+        if (hasModifier(modifier)) {
+            if (showErrorHint) showInaccessibleDeclarationError(this, "The declaration has `$modifier` modifier")
+            return true
+        }
+    }
+    return false
+}
+
+fun showInaccessibleDeclarationError(element: PsiElement, message: String, editor: Editor? = element.findExistingEditor()) {
+    editor?.let {
+        showErrorHint(element.project, editor, escapeXml(message), "Inaccessible declaration")
+    }
+}
+
+fun TypeAccessibilityChecker.Companion.typesToString(types: Collection<FqName?>, separator: CharSequence = "\n"): String {
+    return types.toSet().joinToString(separator = separator) {
+        it?.shortName()?.asString() ?: "<Unknown>"
+    }
+}
+
+fun TypeAccessibilityChecker.findAndApplyExistingClasses(elements: Collection<KtNamedDeclaration>): HashSet<String> {
+    var classes = elements.filterIsInstance<KtClassOrObject>()
+    while (true) {
+        val existingNames = classes.mapNotNull { it.fqName?.asString() }.toHashSet()
+        existingTypeNames = existingNames
+
+        val newExistingClasses = classes.filter { isCorrectAndHaveAccessibleModifiers(it) }
+        if (classes.size == newExistingClasses.size) return existingNames
+
+        classes = newExistingClasses
+    }
+}

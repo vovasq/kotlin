@@ -98,7 +98,12 @@ fun Project.sourcesJar(body: Jar.() -> Unit = {}): TaskProvider<Jar> {
                     .resolvedArtifacts
                     .map { it.id.componentIdentifier }
                     .filterIsInstance<ProjectComponentIdentifier>()
-                    .map { project(it.projectPath).mainSourceSet.allSource }
+                    .mapNotNull {
+                        project(it.projectPath)
+                            .findJavaPluginConvention()
+                            ?.mainSourceSet
+                            ?.allSource
+                    }
             })
         }
 
@@ -111,15 +116,19 @@ fun Project.sourcesJar(body: Jar.() -> Unit = {}): TaskProvider<Jar> {
     return task
 }
 
-fun Project.javadocJar(body: Jar.() -> Unit = {}): TaskProvider<Jar> = getOrCreateTask("javadocJar") {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    classifier = "javadoc"
-    tasks.findByName("javadoc")?.let { it as Javadoc }?.takeIf { it.enabled }?.let {
-        dependsOn(it)
-        from(it.destinationDir)
+fun Project.javadocJar(body: Jar.() -> Unit = {}): TaskProvider<Jar> {
+    val javadocTask = getOrCreateTask<Jar>("javadocJar") {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        archiveClassifier.set("javadoc")
+        tasks.findByName("javadoc")?.let { it as Javadoc }?.takeIf { it.enabled }?.let {
+            dependsOn(it)
+            from(it.destinationDir)
+        }
+        body()
     }
-    body()
-    project.addArtifact("archives", this, this)
+
+    addArtifact("archives", javadocTask)
+    return javadocTask
 }
 
 

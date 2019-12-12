@@ -34,6 +34,7 @@ class IrLazyField(
     override val isFinal: Boolean,
     override val isExternal: Boolean,
     override val isStatic: Boolean,
+    override val isFakeOverride: Boolean,
     stubGenerator: DeclarationStubGenerator,
     typeTranslator: TypeTranslator
 ) : IrLazyDeclarationBase(startOffset, endOffset, origin, stubGenerator, typeTranslator),
@@ -50,22 +51,31 @@ class IrLazyField(
         startOffset, endOffset, origin, symbol,
         symbol.descriptor.name,
         symbol.descriptor.visibility,
-        !symbol.descriptor.isVar,
-        symbol.descriptor.isEffectivelyExternal(),
-        symbol.descriptor.dispatchReceiverParameter == null,
-        stubGenerator,
-        typeTranslator
+        isFinal = !symbol.descriptor.isVar,
+        isExternal = symbol.descriptor.isEffectivelyExternal(),
+        isStatic = symbol.descriptor.dispatchReceiverParameter == null,
+        isFakeOverride = origin == IrDeclarationOrigin.FAKE_OVERRIDE,
+        stubGenerator = stubGenerator,
+        typeTranslator = typeTranslator
     )
 
     init {
         symbol.bind(this)
     }
 
-    override val annotations: MutableList<IrConstructorCall> = mutableListOf()
+    override val annotations: MutableList<IrConstructorCall> by lazy {
+        descriptor.backingField?.annotations
+            ?.mapNotNullTo(mutableListOf(), typeTranslator.constantValueGenerator::generateAnnotationConstructorCall)
+            ?: mutableListOf()
+    }
 
     override val descriptor: PropertyDescriptor = symbol.descriptor
 
-    override val overriddenSymbols: MutableList<IrFieldSymbol> = mutableListOf()
+    override val overriddenSymbols: MutableList<IrFieldSymbol> by lazy {
+        symbol.descriptor.overriddenDescriptors.map {
+            stubGenerator.generateFieldStub(it.original).symbol
+        }.toMutableList()
+    }
 
     override var type: IrType by lazyVar {
         descriptor.type.toIrType()
@@ -78,13 +88,6 @@ class IrLazyField(
             )
         }
     }
-
-    @Suppress("OverridingDeprecatedMember")
-    override var correspondingProperty: IrProperty?
-        get() = correspondingPropertySymbol?.owner
-        set(value) {
-            correspondingPropertySymbol = value?.symbol
-        }
 
     override var correspondingPropertySymbol: IrPropertySymbol? by lazyVar {
         stubGenerator.generatePropertyStub(descriptor).symbol

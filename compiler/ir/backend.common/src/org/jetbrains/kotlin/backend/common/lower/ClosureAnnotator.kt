@@ -30,17 +30,7 @@ import org.jetbrains.kotlin.ir.symbols.IrValueSymbol
 import org.jetbrains.kotlin.ir.util.isLocal
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
-import kotlin.collections.List
-import kotlin.collections.emptyList
-import kotlin.collections.filterTo
-import kotlin.collections.firstOrNull
-import kotlin.collections.forEach
-import kotlin.collections.getOrElse
-import kotlin.collections.mutableListOf
-import kotlin.collections.mutableMapOf
-import kotlin.collections.mutableSetOf
 import kotlin.collections.set
-import kotlin.collections.toList
 
 class Closure(val capturedValues: List<IrValueSymbol> = emptyList())
 
@@ -199,6 +189,10 @@ class ClosureAnnotator(irFile: IrFile) {
 
         private fun processMemberAccess(declaration: IrDeclaration) {
             if (declaration.isLocal) {
+                if (declaration is IrSimpleFunction && declaration.parent is IrClass) {
+                    return
+                }
+
                 val builder = closureBuilders[declaration]
                 builder?.let {
                     closuresStack.peek()?.include(builder)

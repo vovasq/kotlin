@@ -29,6 +29,16 @@ public class WriteFlagsTestGenerated extends AbstractWriteFlagsTest {
         KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("compiler/testData/writeFlags"), Pattern.compile("^(.+)\\.kt$"), TargetBackend.JVM, true);
     }
 
+    @TestMetadata("protectedAccessToBaseMethod.kt")
+    public void testProtectedAccessToBaseMethod() throws Exception {
+        runTest("compiler/testData/writeFlags/protectedAccessToBaseMethod.kt");
+    }
+
+    @TestMetadata("protectedAccessToBaseMethodDifferentPackage.kt")
+    public void testProtectedAccessToBaseMethodDifferentPackage() throws Exception {
+        runTest("compiler/testData/writeFlags/protectedAccessToBaseMethodDifferentPackage.kt");
+    }
+
     @TestMetadata("compiler/testData/writeFlags/callableReference")
     @TestDataPath("$PROJECT_ROOT")
     @RunWith(JUnit3RunnerWithInners.class)
@@ -41,36 +51,36 @@ public class WriteFlagsTestGenerated extends AbstractWriteFlagsTest {
             KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("compiler/testData/writeFlags/callableReference"), Pattern.compile("^(.+)\\.kt$"), TargetBackend.JVM, true);
         }
 
-        @TestMetadata("compiler/testData/writeFlags/callableReference/visibility")
+        @TestMetadata("compiler/testData/writeFlags/callableReference/flags")
         @TestDataPath("$PROJECT_ROOT")
         @RunWith(JUnit3RunnerWithInners.class)
-        public static class Visibility extends AbstractWriteFlagsTest {
+        public static class Flags extends AbstractWriteFlagsTest {
             private void runTest(String testDataFilePath) throws Exception {
                 KotlinTestUtils.runTest(this::doTest, TargetBackend.JVM, testDataFilePath);
             }
 
-            public void testAllFilesPresentInVisibility() throws Exception {
-                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("compiler/testData/writeFlags/callableReference/visibility"), Pattern.compile("^(.+)\\.kt$"), TargetBackend.JVM, true);
+            public void testAllFilesPresentInFlags() throws Exception {
+                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("compiler/testData/writeFlags/callableReference/flags"), Pattern.compile("^(.+)\\.kt$"), TargetBackend.JVM, true);
             }
 
             @TestMetadata("functionReference.kt")
             public void testFunctionReference() throws Exception {
-                runTest("compiler/testData/writeFlags/callableReference/visibility/functionReference.kt");
+                runTest("compiler/testData/writeFlags/callableReference/flags/functionReference.kt");
             }
 
             @TestMetadata("functionReferenceInInlineFunction.kt")
             public void testFunctionReferenceInInlineFunction() throws Exception {
-                runTest("compiler/testData/writeFlags/callableReference/visibility/functionReferenceInInlineFunction.kt");
+                runTest("compiler/testData/writeFlags/callableReference/flags/functionReferenceInInlineFunction.kt");
             }
 
             @TestMetadata("propertyReference.kt")
             public void testPropertyReference() throws Exception {
-                runTest("compiler/testData/writeFlags/callableReference/visibility/propertyReference.kt");
+                runTest("compiler/testData/writeFlags/callableReference/flags/propertyReference.kt");
             }
 
             @TestMetadata("propertyReferenceInInlineFunction.kt")
             public void testPropertyReferenceInInlineFunction() throws Exception {
-                runTest("compiler/testData/writeFlags/callableReference/visibility/propertyReferenceInInlineFunction.kt");
+                runTest("compiler/testData/writeFlags/callableReference/flags/propertyReferenceInInlineFunction.kt");
             }
         }
     }
@@ -481,6 +491,11 @@ public class WriteFlagsTestGenerated extends AbstractWriteFlagsTest {
             public void testTopLevelObject() throws Exception {
                 runTest("compiler/testData/writeFlags/function/constructors/topLevelObject.kt");
             }
+
+            @TestMetadata("withMangledArguments.kt")
+            public void testWithMangledArguments() throws Exception {
+                runTest("compiler/testData/writeFlags/function/constructors/withMangledArguments.kt");
+            }
         }
 
         @TestMetadata("compiler/testData/writeFlags/function/deprecatedFlag")
@@ -756,6 +771,16 @@ public class WriteFlagsTestGenerated extends AbstractWriteFlagsTest {
                 runTest("compiler/testData/writeFlags/jvm8/defaults/defaultProperty.kt");
             }
 
+            @TestMetadata("onlyJvmDefaultsOnInterface.kt")
+            public void testOnlyJvmDefaultsOnInterface() throws Exception {
+                runTest("compiler/testData/writeFlags/jvm8/defaults/onlyJvmDefaultsOnInterface.kt");
+            }
+
+            @TestMetadata("privateAccessorNaming.kt")
+            public void testPrivateAccessorNaming() throws Exception {
+                runTest("compiler/testData/writeFlags/jvm8/defaults/privateAccessorNaming.kt");
+            }
+
             @TestMetadata("propertyAnnotation.kt")
             public void testPropertyAnnotation() throws Exception {
                 runTest("compiler/testData/writeFlags/jvm8/defaults/propertyAnnotation.kt");
@@ -771,6 +796,11 @@ public class WriteFlagsTestGenerated extends AbstractWriteFlagsTest {
 
                 public void testAllFilesPresentInCompatibility() throws Exception {
                     KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("compiler/testData/writeFlags/jvm8/defaults/compatibility"), Pattern.compile("^(.+)\\.kt$"), TargetBackend.JVM, true);
+                }
+
+                @TestMetadata("defaultImplementations.kt")
+                public void testDefaultImplementations() throws Exception {
+                    runTest("compiler/testData/writeFlags/jvm8/defaults/compatibility/defaultImplementations.kt");
                 }
 
                 @TestMetadata("propertyAccessors.kt")

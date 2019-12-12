@@ -12,7 +12,6 @@ import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.repl.*
 import org.jetbrains.kotlin.cli.jvm.config.JvmClasspathRoot
 import org.jetbrains.kotlin.codegen.ClassBuilderFactories
-import org.jetbrains.kotlin.codegen.CompilationErrorHandler
 import org.jetbrains.kotlin.codegen.KotlinCodegenFacade
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.config.CompilerConfiguration
@@ -23,7 +22,6 @@ import org.jetbrains.kotlin.scripting.definitions.ScriptDependenciesProvider
 import java.io.File
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.write
-import kotlin.script.experimental.api.valueOrNull
 
 // WARNING: not thread safe, assuming external synchronization
 
@@ -71,7 +69,7 @@ open class GenericReplCompiler(
             }
 
             val newDependencies =
-                ScriptDependenciesProvider.getInstance(checker.environment.project)?.getScriptConfigurationResult(psiFile)?.valueOrNull()
+                ScriptDependenciesProvider.getInstance(checker.environment.project)?.getScriptConfiguration(psiFile)
                     ?.legacyDependencies
             var classpathAddendum: List<File>? = null
             if (compilerState.lastDependencies != newDependencies) {
@@ -106,11 +104,9 @@ open class GenericReplCompiler(
             KotlinCodegenFacade.generatePackage(
                 generationState,
                 psiFile.script!!.containingKtFile.packageFqName,
-                setOf(psiFile.script!!.containingKtFile),
-                CompilationErrorHandler.THROW_EXCEPTION
+                setOf(psiFile.script!!.containingKtFile)
             )
 
-            val generatedClassname = makeScriptBaseName(codeLine)
             compilerState.history.push(LineId(codeLine), scriptDescriptor)
 
             val classes = generationState.factory.asList().map { CompiledClassData(it.relativePath, it.asByteArray()) }
@@ -118,7 +114,7 @@ open class GenericReplCompiler(
             return ReplCompileResult.CompiledClasses(
                 LineId(codeLine),
                 compilerState.history.map { it.id },
-                generatedClassname,
+                scriptDescriptor.name.identifier,
                 classes,
                 generationState.scriptSpecific.resultFieldName != null,
                 classpathAddendum ?: emptyList(),

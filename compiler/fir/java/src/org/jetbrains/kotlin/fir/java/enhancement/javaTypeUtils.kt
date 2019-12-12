@@ -18,18 +18,22 @@ import org.jetbrains.kotlin.fir.java.declarations.FirJavaClass
 import org.jetbrains.kotlin.fir.java.declarations.FirJavaField
 import org.jetbrains.kotlin.fir.java.toConeProjection
 import org.jetbrains.kotlin.fir.java.toNotNullConeKotlinType
-import org.jetbrains.kotlin.fir.java.types.FirJavaTypeRef
-import org.jetbrains.kotlin.fir.references.FirResolvedCallableReferenceImpl
-import org.jetbrains.kotlin.fir.references.FirSimpleNamedReference
-import org.jetbrains.kotlin.fir.resolve.constructType
-import org.jetbrains.kotlin.fir.resolve.toSymbol
-import org.jetbrains.kotlin.fir.resolve.toTypeProjection
-import org.jetbrains.kotlin.fir.symbols.*
+import org.jetbrains.kotlin.fir.references.impl.FirResolvedNamedReferenceImpl
+import org.jetbrains.kotlin.fir.references.impl.FirSimpleNamedReference
+import org.jetbrains.kotlin.fir.resolve.*
+import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.firUnsafe
+import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
+import org.jetbrains.kotlin.fir.symbols.ConeClassifierLookupTag
+import org.jetbrains.kotlin.fir.symbols.ConeTypeParameterLookupTag
+import org.jetbrains.kotlin.fir.symbols.FirBasedSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.ConeClassLikeLookupTagImpl
+import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.typeContext
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.FirResolvedTypeRefImpl
-import org.jetbrains.kotlin.ir.expressions.IrConstKind
-import org.jetbrains.kotlin.load.java.JvmAnnotationNames
+import org.jetbrains.kotlin.fir.types.jvm.FirJavaTypeRef
+import org.jetbrains.kotlin.load.java.JvmAnnotationNames.DEFAULT_NULL_FQ_NAME
+import org.jetbrains.kotlin.load.java.JvmAnnotationNames.DEFAULT_VALUE_FQ_NAME
 import org.jetbrains.kotlin.load.java.descriptors.AnnotationDefaultValue
 import org.jetbrains.kotlin.load.java.descriptors.NullDefaultValue
 import org.jetbrains.kotlin.load.java.descriptors.StringDefaultValue
@@ -72,7 +76,7 @@ private fun JavaType?.enhancePossiblyFlexible(
 ): FirResolvedTypeRef {
     val type = this
     val arguments = this?.typeArguments().orEmpty()
-    return when (type) {
+    val enhanced = when (type) {
         is JavaClassifierType -> {
             val lowerResult = type.enhanceInflexibleType(
                 session, javaTypeParameterStack, annotations, arguments, TypeComponentPosition.FLEXIBLE_LOWER, qualifiers, index
@@ -81,16 +85,34 @@ private fun JavaType?.enhancePossiblyFlexible(
                 session, javaTypeParameterStack, annotations, arguments, TypeComponentPosition.FLEXIBLE_UPPER, qualifiers, index
             )
 
-            FirResolvedTypeRefImpl(
-                psi = null,
-                type = coneFlexibleOrSimpleType(session, lowerResult, upperResult),
-                annotations = annotations
+            when {
+                type.isRaw -> ConeRawType(lowerResult, upperResult)
+                else -> coneFlexibleOrSimpleType(
+                    session, lowerResult, upperResult, isNotNullTypeParameter = qualifiers(index).isNotNullTypeParameter
+                )
+            }
+        }
+        is JavaArrayType -> {
+            val baseEnhanced = type.toNotNullConeKotlinType(session, javaTypeParameterStack)
+
+            val upperBound = if (baseEnhanced.typeArguments.isNotEmpty()) {
+                val typeArgument = baseEnhanced.typeArguments.first() as ConeKotlinType
+                baseEnhanced.withArguments(arrayOf(ConeKotlinTypeProjectionOut(typeArgument)))
+            } else {
+                baseEnhanced
+            }
+            ConeFlexibleType(
+                baseEnhanced,
+                upperBound.withNullability(ConeNullability.NULLABLE)
             )
         }
         else -> {
-            val enhanced = type.toNotNullConeKotlinType(session, javaTypeParameterStack)
-            FirResolvedTypeRefImpl(psi = null, type = enhanced, annotations = annotations)
+            type.toNotNullConeKotlinType(session, javaTypeParameterStack)
         }
+    }
+
+    return FirResolvedTypeRefImpl(source = null, type = enhanced).apply {
+        this.annotations += annotations
     }
 }
 
@@ -102,9 +124,22 @@ private fun JavaType?.subtreeSize(): Int {
 private fun coneFlexibleOrSimpleType(
     session: FirSession,
     lowerBound: ConeLookupTagBasedType,
-    upperBound: ConeLookupTagBasedType
+    upperBound: ConeLookupTagBasedType,
+    isNotNullTypeParameter: Boolean
 ): ConeKotlinType {
     if (AbstractStrictEqualityTypeChecker.strictEqualTypes(session.typeContext, lowerBound, upperBound)) {
+        val lookupTag = lowerBound.lookupTag
+        if (isNotNullTypeParameter && lookupTag is ConeTypeParameterLookupTag && !lowerBound.isMarkedNullable) {
+            // TODO: we need enhancement for type parameter bounds for this code to work properly
+            // At this moment, this condition is always true
+            if (lookupTag.typeParameterSymbol.fir.bounds.any {
+                    val type = (it as FirResolvedTypeRef).type
+                    type is ConeTypeParameterType || type.isNullable
+                }
+            ) {
+                return ConeDefinitelyNotNullType.create(lowerBound)
+            }
+        }
         return lowerBound
     }
     return ConeFlexibleType(lowerBound, upperBound)
@@ -128,6 +163,78 @@ private fun ClassId.mutableToReadOnly(): ClassId? {
     }
 }
 
+
+
+// Definition:
+// ErasedUpperBound(T : G<t>) = G<*> // UpperBound(T) is a type G<t> with arguments
+// ErasedUpperBound(T : A) = A // UpperBound(T) is a type A without arguments
+// ErasedUpperBound(T : F) = UpperBound(F) // UB(T) is another type parameter F
+private fun FirTypeParameter.getErasedUpperBound(
+    // Calculation of `potentiallyRecursiveTypeParameter.upperBounds` may recursively depend on `this.getErasedUpperBound`
+    // E.g. `class A<T extends A, F extends A>`
+    // To prevent recursive calls return defaultValue() instead
+    potentiallyRecursiveTypeParameter: FirTypeParameter? = null,
+    defaultValue: (() -> ConeKotlinType) = { ConeKotlinErrorType("Can't compute erased upper bound of type parameter `$this`") }
+): ConeKotlinType {
+    if (this === potentiallyRecursiveTypeParameter) return defaultValue()
+
+    val firstUpperBound = this.bounds.first().coneTypeUnsafe<ConeKotlinType>()
+
+    val firstUpperBoundClassifier = firstUpperBound
+    if (firstUpperBoundClassifier is ConeClassLikeType) {
+        return firstUpperBound.withArguments(firstUpperBound.typeArguments.map { ConeStarProjection }.toTypedArray())
+    }
+
+    val alreadyVisited = mutableSetOf(potentiallyRecursiveTypeParameter, this)
+    var current = (firstUpperBound as ConeTypeParameterType).lookupTag.typeParameterSymbol.fir
+
+    while (current !in alreadyVisited) {
+        alreadyVisited += current
+
+        val nextUpperBound = current.bounds.first().coneTypeUnsafe<ConeKotlinType>()
+        if (nextUpperBound is ConeClassLikeType) {
+            return nextUpperBound.withArguments(nextUpperBound.typeArguments.map { ConeStarProjection }.toTypedArray())
+        }
+
+        current = (nextUpperBound as ConeTypeParameterType).lookupTag.typeParameterSymbol.fir
+    }
+
+    return defaultValue()
+}
+
+
+fun computeProjection(
+    session: FirSession,
+    parameter: FirTypeParameter,
+    attr: TypeComponentPosition,
+    erasedUpperBound: ConeKotlinType = parameter.getErasedUpperBound()
+) = when (attr) {
+    // Raw(List<T>) => (List<Any?>..List<*>)
+    // Raw(Enum<T>) => (Enum<Enum<*>>..Enum<out Enum<*>>)
+    // In the last case upper bound is equal to star projection `Enum<*>`,
+    // but we want to keep matching tree structure of flexible bounds (at least they should have the same size)
+    TypeComponentPosition.FLEXIBLE_LOWER -> {
+        // T : String -> String
+        // in T : String -> String
+        // T : Enum<T> -> Enum<*>
+        erasedUpperBound
+    }
+    TypeComponentPosition.FLEXIBLE_UPPER, TypeComponentPosition.INFLEXIBLE -> {
+        if (!parameter.variance.allowsOutPosition)
+        // in T -> Comparable<Nothing>
+            session.builtinTypes.nothingType.type
+        else if (erasedUpperBound is ConeClassLikeType &&
+            erasedUpperBound.lookupTag.toSymbol(session)!!.firUnsafe<FirRegularClass>().typeParameters.isNotEmpty())
+        // T : Enum<E> -> out Enum<*>
+            ConeKotlinTypeProjectionOut(erasedUpperBound)
+        else
+        // T : String -> *
+            ConeStarProjection
+    }
+}
+
+
+
 private fun JavaClassifierType.enhanceInflexibleType(
     session: FirSession,
     javaTypeParameterStack: JavaTypeParameterStack,
@@ -137,7 +244,8 @@ private fun JavaClassifierType.enhanceInflexibleType(
     qualifiers: IndexedJavaTypeQualifiers,
     index: Int
 ): ConeLookupTagBasedType {
-    val originalTag = when (val classifier = classifier) {
+    val classifier = classifier
+    val originalTag = when (classifier) {
         is JavaClass -> {
             val classId = classifier.classId!!
             var mappedId = JavaToKotlinClassMap.mapJavaToKotlin(classId.asSingleFqName())
@@ -156,19 +264,32 @@ private fun JavaClassifierType.enhanceInflexibleType(
     val effectiveQualifiers = qualifiers(index)
     val enhancedTag = originalTag.enhanceMutability(effectiveQualifiers, position)
 
-    var globalArgIndex = index + 1
-    val enhancedArguments = arguments.mapIndexed { localArgIndex, arg ->
-        if (arg is JavaWildcardType) {
-            globalArgIndex++
-            arg.toConeProjection(
-                session,
-                javaTypeParameterStack,
-                ((originalTag as? FirBasedSymbol<*>)?.fir as? FirCallableMemberDeclaration<*>)?.typeParameters?.getOrNull(localArgIndex)
-            )
-        } else {
-            val argEnhancedTypeRef = arg.enhancePossiblyFlexible(session, javaTypeParameterStack, annotations, qualifiers, globalArgIndex)
-            globalArgIndex += arg.subtreeSize()
-            argEnhancedTypeRef.type.type.toTypeProjection(Variance.INVARIANT)
+    val enhancedArguments = if (isRaw) {
+        val firClassifier = originalTag.toSymbol(session)!!.firUnsafe<FirRegularClass>()
+        firClassifier.typeParameters.map {
+            val fir = it
+            val erasedUpperBound = fir.getErasedUpperBound {
+                firClassifier.defaultType().withArguments(firClassifier.typeParameters.map { ConeStarProjection }.toTypedArray())
+            }
+            computeProjection(session, fir, position, erasedUpperBound)
+        }
+    } else {
+        var globalArgIndex = index + 1
+        arguments.mapIndexed { localArgIndex, arg ->
+            if (arg is JavaWildcardType) {
+                globalArgIndex++
+                arg.toConeProjection(
+                    session,
+                    javaTypeParameterStack,
+                    ((originalTag as? FirBasedSymbol<*>)?.fir as? FirCallableMemberDeclaration<*>)?.typeParameters?.getOrNull(localArgIndex)
+                )
+            } else {
+                val argEnhancedTypeRef =
+                    arg.enhancePossiblyFlexible(session, javaTypeParameterStack, annotations, qualifiers, globalArgIndex)
+                globalArgIndex += arg.subtreeSize()
+
+                argEnhancedTypeRef.type.type.toTypeProjection(Variance.INVARIANT)
+            }
         }
     }
 
@@ -240,14 +361,14 @@ internal fun ConeKotlinType.lexicalCastFrom(session: FirSession, value: String):
         else -> return null
     }
     val lookupTag = lookupTagBasedType.lookupTag
-    val firElement = (lookupTag.toSymbol(session) as? FirBasedSymbol<*>)?.fir
+    val firElement = lookupTag.toSymbol(session)?.fir
     if (firElement is FirRegularClass && firElement.classKind == ClassKind.ENUM_CLASS) {
         val name = Name.identifier(value)
         val firEnumEntry = firElement.declarations.filterIsInstance<FirEnumEntry>().find { it.name == name }
 
         return if (firEnumEntry != null) FirQualifiedAccessExpressionImpl(null).apply {
             calleeReference = FirSimpleNamedReference(
-                null, name // TODO: , firEnumEntry.symbol
+                null, name, null // TODO: , firEnumEntry.symbol
             )
         } else if (firElement is FirJavaClass) {
             val firStaticProperty = firElement.declarations.filterIsInstance<FirJavaField>().find {
@@ -255,8 +376,8 @@ internal fun ConeKotlinType.lexicalCastFrom(session: FirSession, value: String):
             }
             if (firStaticProperty != null) {
                 FirQualifiedAccessExpressionImpl(null).apply {
-                    calleeReference = FirResolvedCallableReferenceImpl(
-                        null, name, firStaticProperty.symbol as ConeCallableSymbol
+                    calleeReference = FirResolvedNamedReferenceImpl(
+                        null, name, firStaticProperty.symbol as FirCallableSymbol<*>
                     )
                 }
             } else null
@@ -269,29 +390,32 @@ internal fun ConeKotlinType.lexicalCastFrom(session: FirSession, value: String):
 
     val (number, radix) = extractRadix(value)
     return when (classId.relativeClassName.asString()) {
-        "Boolean" -> FirConstExpressionImpl(null, IrConstKind.Boolean, value.toBoolean())
-        "Char" -> FirConstExpressionImpl(null, IrConstKind.Char, value.singleOrNull() ?: return null)
-        "Byte" -> FirConstExpressionImpl(null, IrConstKind.Byte, number.toByteOrNull(radix) ?: return null)
-        "Short" -> FirConstExpressionImpl(null, IrConstKind.Short, number.toShortOrNull(radix) ?: return null)
-        "Int" -> FirConstExpressionImpl(null, IrConstKind.Int, number.toIntOrNull(radix) ?: return null)
-        "Long" -> FirConstExpressionImpl(null, IrConstKind.Long, number.toLongOrNull(radix) ?: return null)
-        "Float" -> FirConstExpressionImpl(null, IrConstKind.Float, value.toFloatOrNull() ?: return null)
-        "Double" -> FirConstExpressionImpl(null, IrConstKind.Double, value.toDoubleOrNull() ?: return null)
-        "String" -> FirConstExpressionImpl(null, IrConstKind.String, value)
+        "Boolean" -> FirConstExpressionImpl(null, FirConstKind.Boolean, value.toBoolean())
+        "Char" -> FirConstExpressionImpl(null, FirConstKind.Char, value.singleOrNull() ?: return null)
+        "Byte" -> FirConstExpressionImpl(null, FirConstKind.Byte, number.toByteOrNull(radix) ?: return null)
+        "Short" -> FirConstExpressionImpl(null, FirConstKind.Short, number.toShortOrNull(radix) ?: return null)
+        "Int" -> FirConstExpressionImpl(null, FirConstKind.Int, number.toIntOrNull(radix) ?: return null)
+        "Long" -> FirConstExpressionImpl(null, FirConstKind.Long, number.toLongOrNull(radix) ?: return null)
+        "Float" -> FirConstExpressionImpl(null, FirConstKind.Float, value.toFloatOrNull() ?: return null)
+        "Double" -> FirConstExpressionImpl(null, FirConstKind.Double, value.toDoubleOrNull() ?: return null)
+        "String" -> FirConstExpressionImpl(null, FirConstKind.String, value)
         else -> null
     }
 }
 
 internal fun FirValueParameter.getDefaultValueFromAnnotation(): AnnotationDefaultValue? {
-    annotations.find { it.resolvedFqName == JvmAnnotationNames.DEFAULT_VALUE_FQ_NAME }
+    annotations.find { it.classId == DEFAULT_VALUE_ID }
         ?.arguments?.firstOrNull()
         ?.safeAs<FirConstExpression<*>>()?.value?.safeAs<String>()
         ?.let { return StringDefaultValue(it) }
 
-    if (annotations.any { it.resolvedFqName == JvmAnnotationNames.DEFAULT_NULL_FQ_NAME }) {
+    if (annotations.any { it.classId == DEFAULT_NULL_ID }) {
         return NullDefaultValue
     }
 
     return null
 }
+
+private val DEFAULT_VALUE_ID = ClassId.topLevel(DEFAULT_VALUE_FQ_NAME)
+private val DEFAULT_NULL_ID = ClassId.topLevel(DEFAULT_NULL_FQ_NAME)
 

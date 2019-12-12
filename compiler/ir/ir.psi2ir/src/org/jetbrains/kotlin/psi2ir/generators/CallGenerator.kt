@@ -23,7 +23,6 @@ import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.*
 import org.jetbrains.kotlin.ir.types.IrDynamicType
 import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.types.classifierOrFail
 import org.jetbrains.kotlin.ir.util.referenceFunction
 import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.psi.KtElement
@@ -125,9 +124,9 @@ class CallGenerator(statementGenerator: StatementGenerator) : StatementGenerator
             val getterDescriptor = descriptor.getter!!
             val getterSymbol = context.symbolTable.referenceFunction(getterDescriptor.original)
             IrCallImpl(
-                startOffset, endOffset, descriptor.type.toIrType(), getterSymbol, getterDescriptor,
-                origin ?: IrStatementOrigin.GET_LOCAL_PROPERTY
+                startOffset, endOffset, descriptor.type.toIrType(), getterSymbol, origin ?: IrStatementOrigin.GET_LOCAL_PROPERTY
             ).apply {
+                context.callToSubstitutedDescriptorMap[this] = getterDescriptor
                 putTypeArguments(typeArguments) { it.toIrType() }
             }
         } else
@@ -141,9 +140,9 @@ class CallGenerator(statementGenerator: StatementGenerator) : StatementGenerator
             val irCall = IrDelegatingConstructorCallImpl(
                 startOffset, endOffset,
                 context.irBuiltIns.unitType,
-                constructorSymbol,
-                descriptor
+                constructorSymbol
             ).apply {
+                context.callToSubstitutedDescriptorMap[this] = descriptor
                 putTypeArguments(call.typeArguments) { it.toIrType() }
                 this.dispatchReceiver = dispatchReceiver?.load()
                 this.extensionReceiver = extensionReceiver?.load()
@@ -161,8 +160,10 @@ class CallGenerator(statementGenerator: StatementGenerator) : StatementGenerator
             if (dispatchReceiver != null) throw AssertionError("Dispatch receiver should be null: $dispatchReceiver")
             if (extensionReceiver != null) throw AssertionError("Extension receiver should be null: $extensionReceiver")
             val constructorSymbol = context.symbolTable.referenceConstructor(constructorDescriptor.original)
-            val irCall = IrEnumConstructorCallImpl(startOffset, endOffset, context.irBuiltIns.unitType, constructorSymbol)
-            addParametersToCall(startOffset, endOffset, call, irCall, context.irBuiltIns.unitType)
+            val returnType = constructorDescriptor.returnType.toIrType()
+            val irCall = IrEnumConstructorCallImpl(startOffset, endOffset, returnType, constructorSymbol)
+            context.callToSubstitutedDescriptorMap[irCall] = constructorDescriptor
+            addParametersToCall(startOffset, endOffset, call, irCall, irCall.type)
         }
     }
 
@@ -205,12 +206,12 @@ class CallGenerator(statementGenerator: StatementGenerator) : StatementGenerator
                         startOffset, endOffset,
                         irType,
                         getterSymbol,
-                        getMethodDescriptor,
                         descriptor.typeParametersCount,
                         0,
                         IrStatementOrigin.GET_PROPERTY,
                         superQualifierSymbol
                     ).apply {
+                        context.callToSubstitutedDescriptorMap[this] = getMethodDescriptor
                         putTypeArguments(call.typeArguments) { it.toIrType() }
                         dispatchReceiver = dispatchReceiverValue?.load()
                         extensionReceiver = extensionReceiverValue?.load()
@@ -249,13 +250,15 @@ class CallGenerator(statementGenerator: StatementGenerator) : StatementGenerator
     ): IrExpression =
         call.callReceiver.call { dispatchReceiverValue, extensionReceiverValue ->
             val irType = constructorDescriptor.returnType.toIrType()
-            IrConstructorCallImpl.fromSubstitutedDescriptor(
+            val originalSymbol = context.symbolTable.referenceConstructor(constructorDescriptor.original)
+
+            IrConstructorCallImpl.fromSymbolDescriptor(
                 startOffset, endOffset,
                 irType,
-                context.symbolTable.referenceConstructor(constructorDescriptor.original),
-                constructorDescriptor,
+                originalSymbol,
                 origin
             ).run {
+                context.callToSubstitutedDescriptorMap[this] = constructorDescriptor
                 putTypeArguments(call.typeArguments) { it.toIrType() }
                 dispatchReceiver = dispatchReceiverValue?.load()
                 extensionReceiver = extensionReceiverValue?.load()
@@ -322,14 +325,15 @@ class CallGenerator(statementGenerator: StatementGenerator) : StatementGenerator
                         )
                 }
             } else {
+                val originalSymbol = context.symbolTable.referenceFunction(functionDescriptor.original)
                 IrCallImpl(
                     startOffset, endOffset,
                     irType,
-                    context.symbolTable.referenceFunction(functionDescriptor.original),
-                    functionDescriptor,
+                    originalSymbol,
                     origin,
                     call.superQualifier?.let { context.symbolTable.referenceClass(it) }
                 ).run {
+                    context.callToSubstitutedDescriptorMap[this] = functionDescriptor
                     putTypeArguments(call.typeArguments) { it.toIrType() }
                     dispatchReceiver = dispatchReceiverValue?.load()
                     extensionReceiver = extensionReceiverValue?.load()

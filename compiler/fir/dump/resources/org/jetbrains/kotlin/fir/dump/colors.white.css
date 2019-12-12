@@ -21,7 +21,8 @@
 }
 
 .white .keyword {
-    color: #8ba558;
+    color: #5f17ef;
+    font-weight: bold;
 }
 
 .white a.ref.selected {
@@ -67,4 +68,24 @@
 .white .line {
     background-color: lightgray;
     border-right: thin solid darkgray;
+}
+
+.white .error-counter {
+    color: #f00;
+    padding-left: 15px;
+}
+
+.white .implicit-counter {
+    color: aqua;
+    padding-left: 15px;
+}
+
+.white .unresolved-counter {
+    color: #d42eff;
+    padding-left: 15px;
+}
+
+.white .diagnostic-hover {
+    background-color: #eaeaea;
+    color: #000;
 }

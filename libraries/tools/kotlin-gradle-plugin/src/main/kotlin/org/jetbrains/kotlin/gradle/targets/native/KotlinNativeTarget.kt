@@ -7,16 +7,22 @@
 package org.jetbrains.kotlin.gradle.plugin.mpp
 
 import groovy.lang.Closure
+import org.gradle.api.NamedDomainObjectContainer
 import org.gradle.api.Project
 import org.gradle.api.attributes.Attribute
 import org.gradle.util.ConfigureUtil
 import org.gradle.util.WrapUtil
 import org.jetbrains.kotlin.gradle.dsl.KotlinNativeBinaryContainer
 import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformType
-import org.jetbrains.kotlin.gradle.utils.isGradleVersionAtLeast
+import org.jetbrains.kotlin.gradle.plugin.KotlinTargetWithTests
+import org.jetbrains.kotlin.gradle.targets.native.KotlinNativeBinaryTestRun
+import org.jetbrains.kotlin.gradle.targets.native.KotlinNativeHostTestRun
+import org.jetbrains.kotlin.gradle.targets.native.KotlinNativeSimulatorTestRun
+import org.jetbrains.kotlin.gradle.targets.native.NativeBinaryTestRunSource
 import org.jetbrains.kotlin.konan.target.KonanTarget
+import javax.inject.Inject
 
-class KotlinNativeTarget(
+open class KotlinNativeTarget @Inject constructor(
     project: Project,
     val konanTarget: KonanTarget
 ) : KotlinOnlyTarget<KotlinNativeCompilation>(project, KotlinPlatformType.native) {
@@ -25,12 +31,9 @@ class KotlinNativeTarget(
         attributes.attribute(konanTargetAttribute, konanTarget.name)
     }
 
-    val binaries = if(isGradleVersionAtLeast(4, 2)) {
+    val binaries =
         // Use newInstance to allow accessing binaries by their names in Groovy using the extension mechanism.
         project.objects.newInstance(KotlinNativeBinaryContainer::class.java, this, WrapUtil.toDomainObjectSet(NativeBinary::class.java))
-    } else {
-        KotlinNativeBinaryContainer(this, WrapUtil.toDomainObjectSet(NativeBinary::class.java))
-    }
 
     fun binaries(configure: KotlinNativeBinaryContainer.() -> Unit) {
         binaries.configure()
@@ -62,3 +65,18 @@ class KotlinNativeTarget(
         )
     }
 }
+
+abstract class KotlinNativeTargetWithTests<T : KotlinNativeBinaryTestRun>(
+    project: Project,
+    konanTarget: KonanTarget
+) : KotlinNativeTarget(project, konanTarget), KotlinTargetWithTests<NativeBinaryTestRunSource, T> {
+
+    override lateinit var testRuns: NamedDomainObjectContainer<T>
+        internal set
+}
+
+open class KotlinNativeTargetWithHostTests @Inject constructor(project: Project, konanTarget: KonanTarget) :
+    KotlinNativeTargetWithTests<KotlinNativeHostTestRun>(project, konanTarget)
+
+open class KotlinNativeTargetWithSimulatorTests @Inject constructor(project: Project, konanTarget: KonanTarget) :
+    KotlinNativeTargetWithTests<KotlinNativeSimulatorTestRun>(project, konanTarget)

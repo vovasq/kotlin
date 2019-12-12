@@ -6,7 +6,7 @@ import org.gradle.internal.os.OperatingSystem
 plugins {
     kotlin("jvm")
     id("jps-compatible")
-    id("com.moowork.node").version("1.2.0")
+    id("com.github.node-gradle.node")
     id("de.undercouch.download")
 }
 
@@ -16,7 +16,11 @@ node {
 }
 
 val antLauncherJar by configurations.creating
-val testJsRuntime by configurations.creating
+val testJsRuntime by configurations.creating {
+    attributes {
+        attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements.JAR))
+    }
+}
 
 dependencies {
     testRuntime(intellijDep())
@@ -35,32 +39,40 @@ dependencies {
     testCompile(project(":js:js.translator"))
     testCompile(project(":js:js.serializer"))
     testCompile(project(":js:js.dce"))
+    testCompile(project(":js:js.engines"))
     testCompile(commonDep("junit:junit"))
     testCompile(projectTests(":kotlin-build-common"))
     testCompile(projectTests(":generators:test-generator"))
 
+    val currentOs = OperatingSystem.current()
+
+    val j2v8idString = when {
+        currentOs.isWindows -> {
+            val suffix = if (currentOs.toString().endsWith("64")) "_64" else ""
+            "com.eclipsesource.j2v8:j2v8_win32_x86$suffix:4.6.0"
+        }
+        currentOs.isMacOsX -> "com.eclipsesource.j2v8:j2v8_macosx_x86_64:4.6.0"
+        currentOs.run { isLinux || isUnix } -> "com.eclipsesource.j2v8:j2v8_linux_x86_64:4.8.0"
+        else -> {
+            logger.error("unsupported platform $currentOs - can not compile com.eclipsesource.j2v8 dependency")
+            "j2v8:$currentOs"
+        }
+    }
+
+    testCompile(j2v8idString)
+
     testRuntime(kotlinStdlib())
     testJsRuntime(kotlinStdlib("js"))
-    testJsRuntime(project(":kotlin-test:kotlin-test-js")) // to be sure that kotlin-test-js built before tests runned
+    if (!kotlinBuildProperties.isInJpsBuildIdeaSync) {
+        testJsRuntime(project(":kotlin-test:kotlin-test-js")) // to be sure that kotlin-test-js built before tests runned
+    }
     testRuntime(project(":kotlin-reflect"))
     testRuntime(project(":kotlin-preloader")) // it's required for ant tests
     testRuntime(project(":compiler:backend-common"))
     testRuntime(commonDep("org.fusesource.jansi", "jansi"))
-
-    val currentOs = OperatingSystem.current()
-
-    when {
-        currentOs.isWindows -> {
-            val suffix = if (currentOs.toString().endsWith("64")) "_64" else ""
-            testCompile("com.eclipsesource.j2v8:j2v8_win32_x86$suffix:4.6.0")
-        }
-        currentOs.isMacOsX -> testCompile("com.eclipsesource.j2v8:j2v8_macosx_x86_64:4.6.0")
-        currentOs.run { isLinux || isUnix } -> testCompile("com.eclipsesource.j2v8:j2v8_linux_x86_64:4.8.0")
-        else -> logger.error("unsupported platform $currentOs - can not compile com.eclipsesource.j2v8 dependency")
-    }
     
     antLauncherJar(commonDep("org.apache.ant", "ant"))
-    antLauncherJar(files(toolsJar()))
+    antLauncherJar(toolsJar())
 }
 
 sourceSets {

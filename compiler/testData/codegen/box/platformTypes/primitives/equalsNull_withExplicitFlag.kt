@@ -1,7 +1,14 @@
+// IGNORE_BACKEND_FIR: JVM_IR
 // KOTLIN_CONFIGURATION_FLAGS: +JVM.NO_EXCEPTION_ON_EXPLICIT_EQUALS_FOR_BOXED_NULL
 // TARGET_BACKEND: JVM
 // WITH_RUNTIME
-// FILE: test.kt
+// FILE: equalsNull_withExplicitFlag.kt
+
+// Should be: IGNORE_BACKEND: JVM_IR
+// ^ TODO: fix intrinsic for 'equals' for boxed primitives
+// JVM_IR supports behavior since Kotlin 1.3,
+// and '-Xno-exception-on-explicit-equals-for-boxed-null' is a fallback flag introduced in 1.2.
+
 import kotlin.test.*
 
 fun box(): String {

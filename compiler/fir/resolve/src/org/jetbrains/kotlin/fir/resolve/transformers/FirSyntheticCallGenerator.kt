@@ -7,107 +7,123 @@ package org.jetbrains.kotlin.fir.resolve.transformers
 
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
+import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.copy
 import org.jetbrains.kotlin.fir.declarations.FirResolvePhase
-import org.jetbrains.kotlin.fir.declarations.impl.FirMemberFunctionImpl
+import org.jetbrains.kotlin.fir.declarations.addDefaultBoundIfNecessary
+import org.jetbrains.kotlin.fir.declarations.impl.FirDeclarationStatusImpl
+import org.jetbrains.kotlin.fir.declarations.impl.FirSimpleFunctionImpl
 import org.jetbrains.kotlin.fir.declarations.impl.FirTypeParameterImpl
 import org.jetbrains.kotlin.fir.declarations.impl.FirValueParameterImpl
-import org.jetbrains.kotlin.fir.expressions.FirExpression
-import org.jetbrains.kotlin.fir.expressions.FirTryExpression
-import org.jetbrains.kotlin.fir.expressions.FirWhenExpression
-import org.jetbrains.kotlin.fir.references.FirStubReference
+import org.jetbrains.kotlin.fir.expressions.*
+import org.jetbrains.kotlin.fir.expressions.impl.FirFunctionCallImpl
+import org.jetbrains.kotlin.fir.references.FirReference
+import org.jetbrains.kotlin.fir.references.impl.FirStubReference
 import org.jetbrains.kotlin.fir.resolve.BodyResolveComponents
 import org.jetbrains.kotlin.fir.resolve.calls.*
+import org.jetbrains.kotlin.fir.resolve.inference.FirCallCompleter
+import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.FirAbstractBodyResolveTransformer
+import org.jetbrains.kotlin.fir.resolve.transformers.body.resolve.resultType
+import org.jetbrains.kotlin.fir.resolve.withNullability
+import org.jetbrains.kotlin.fir.symbols.CallableId
 import org.jetbrains.kotlin.fir.symbols.SyntheticCallableId
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 import org.jetbrains.kotlin.fir.types.*
 import org.jetbrains.kotlin.fir.types.impl.ConeTypeParameterTypeImpl
 import org.jetbrains.kotlin.fir.types.impl.FirResolvedTypeRefImpl
 import org.jetbrains.kotlin.fir.types.impl.FirTypeProjectionWithVarianceImpl
+import org.jetbrains.kotlin.fir.visitors.CompositeTransformResult
+import org.jetbrains.kotlin.fir.visitors.FirTransformer
+import org.jetbrains.kotlin.fir.visitors.compose
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.resolve.calls.tasks.ExplicitReceiverKind
 import org.jetbrains.kotlin.types.Variance
 
-class FirSyntheticCallGenerator(private val transformer: FirBodyResolveTransformer) : BodyResolveComponents by transformer {
+class FirSyntheticCallGenerator(
+    private val components: FirAbstractBodyResolveTransformer.BodyResolveTransformerComponents,
+    private val callCompleter: FirCallCompleter
+) : BodyResolveComponents by components {
+    private val whenSelectFunction: FirSimpleFunctionImpl = generateSyntheticSelectFunction(SyntheticCallableId.WHEN)
+    private val trySelectFunction: FirSimpleFunctionImpl = generateSyntheticSelectFunction(SyntheticCallableId.TRY)
+    private val idFunction: FirSimpleFunctionImpl = generateSyntheticSelectFunction(SyntheticCallableId.ID)
+    private val checkNotNullFunction: FirSimpleFunctionImpl = generateSyntheticCheckNotNullFunction()
+
     fun generateCalleeForWhenExpression(whenExpression: FirWhenExpression): FirWhenExpression? {
         val stubReference = whenExpression.calleeReference
-        assert(stubReference is FirStubReference)
-
-        val function = generateWhenCallDeclaration()
+        // TODO: Investigate: assertion failed in ModularizedTest
+        // assert(stubReference is FirStubReference)
+        if (stubReference !is FirStubReference) return null
 
         val arguments = whenExpression.branches.map { it.result }
-        val reference = generateCalleeReferenceWithCandidate(function, arguments, SyntheticCallableId.WHEN.callableName) ?: return null // TODO
+        val reference = generateCalleeReferenceWithCandidate(
+            whenSelectFunction,
+            arguments,
+            SyntheticCallableId.WHEN.callableName
+        ) ?: return null // TODO
 
-        return whenExpression.copy(calleeReference = reference)
+        return whenExpression.transformCalleeReference(UpdateReference, reference)
     }
 
     fun generateCalleeForTryExpression(tryExpression: FirTryExpression): FirTryExpression? {
         val stubReference = tryExpression.calleeReference
         assert(stubReference is FirStubReference)
 
-        val function = generateTryCallDeclaration(tryExpression)
         val arguments = mutableListOf<FirExpression>()
 
         with(tryExpression) {
             arguments += tryBlock
-            catches.map {
+            catches.forEach {
                 arguments += it.block
             }
         }
 
-        val reference = generateCalleeReferenceWithCandidate(function, arguments, SyntheticCallableId.TRY.callableName) ?: return null // TODO
+        val reference = generateCalleeReferenceWithCandidate(
+            trySelectFunction,
+            arguments,
+            SyntheticCallableId.TRY.callableName
+        ) ?: return null // TODO
 
-        return tryExpression.copy(calleeReference = reference)
+        return tryExpression.transformCalleeReference(UpdateReference, reference)
     }
 
-    private fun generateTryCallDeclaration(tryExpression: FirTryExpression): FirMemberFunctionImpl {
-        val functionSymbol = FirSyntheticFunctionSymbol(SyntheticCallableId.TRY, file)
-        val typeParameterSymbol = FirTypeParameterSymbol()
-        val typeParameter = FirTypeParameterImpl(session, null, typeParameterSymbol, Name.identifier("K"), Variance.INVARIANT, false)
+    fun generateCalleeForCheckNotNullCall(checkNotNullCall: FirCheckNotNullCall): FirCheckNotNullCall? {
+        val stubReference = checkNotNullCall.calleeReference
+        if (stubReference !is FirStubReference) return null
 
-        val returnType = FirResolvedTypeRefImpl(null, ConeTypeParameterTypeImpl(typeParameterSymbol.toLookupTag(), false))
+        val reference = generateCalleeReferenceWithCandidate(
+            checkNotNullFunction,
+            checkNotNullCall.arguments,
+            SyntheticCallableId.CHECK_NOT_NULL.callableName
+        ) ?: return null // TODO
 
-        val tryType = FirResolvedTypeRefImpl(null, returnType.coneTypeUnsafe())
-        val catchTypes = tryExpression.catches.map {
-            FirResolvedTypeRefImpl(null, returnType.coneTypeUnsafe())
-        }
-
-        val typeArgument = FirTypeProjectionWithVarianceImpl(null, Variance.INVARIANT, returnType)
-
-        return generateMemberFunction(session, functionSymbol, SyntheticCallableId.TRY.callableName, typeArgument.typeRef).apply {
-            typeParameters += typeParameter
-
-            valueParameters += tryType.toValueParameter(session, "tryBlock")
-            catchTypes.forEachIndexed { i, type ->
-                valueParameters += type.toValueParameter(session, "catchBlock_$i")
-            }
-        }
+        return checkNotNullCall.transformCalleeReference(UpdateReference, reference)
     }
 
-    private fun generateWhenCallDeclaration(): FirMemberFunctionImpl {
-        val functionSymbol = FirSyntheticFunctionSymbol(SyntheticCallableId.WHEN, file)
-        val typeParameterSymbol = FirTypeParameterSymbol()
-        val typeParameter = FirTypeParameterImpl(session, null, typeParameterSymbol, Name.identifier("K"), Variance.INVARIANT, false)
+    fun resolveCallableReferenceWithSyntheticOuterCall(
+        callableReferenceAccess: FirCallableReferenceAccess,
+        expectedTypeRef: FirTypeRef?
+    ): FirCallableReferenceAccess? {
+        val arguments = listOf(callableReferenceAccess)
 
-        val returnType = FirResolvedTypeRefImpl(null, ConeTypeParameterTypeImpl(typeParameterSymbol.toLookupTag(), false))
-        val branchType = FirResolvedTypeRefImpl(null, returnType.coneTypeUnsafe<ConeKotlinType>().createArrayOf(session))
+        val reference =
+            generateCalleeReferenceWithCandidate(
+                idFunction, arguments, SyntheticCallableId.ID.callableName, CallKind.SyntheticIdForCallableReferencesResolution
+            ) ?: return null
+        val fakeCallElement = FirFunctionCallImpl(null).copy(calleeReference = reference, arguments = arguments)
 
-        val typeArgument = FirTypeProjectionWithVarianceImpl(null, Variance.INVARIANT, returnType)
-
-        return generateMemberFunction(session, functionSymbol, SyntheticCallableId.WHEN.callableName, typeArgument.typeRef).apply {
-            typeParameters += typeParameter
-            valueParameters += branchType.toValueParameter(session, "branches", true)
-        }
+        return callCompleter.completeCall(fakeCallElement, expectedTypeRef).arguments[0] as FirCallableReferenceAccess?
     }
 
     private fun generateCalleeReferenceWithCandidate(
-        function: FirMemberFunctionImpl,
+        function: FirSimpleFunctionImpl,
         arguments: List<FirExpression>,
-        name: Name
+        name: Name,
+        callKind: CallKind = CallKind.SyntheticSelect
     ): FirNamedReferenceWithCandidate? {
-        val callInfo = generateCallInfo(arguments)
+        val callInfo = generateCallInfo(arguments, callKind)
         val candidate = generateCandidate(callInfo, function)
         val applicability = resolutionStageRunner.processCandidate(candidate)
         if (applicability <= CandidateApplicability.INAPPLICABLE) {
@@ -117,58 +133,126 @@ class FirSyntheticCallGenerator(private val transformer: FirBodyResolveTransform
         return FirNamedReferenceWithCandidate(null, name, candidate)
     }
 
-    private fun generateCandidate(callInfo: CallInfo, function: FirMemberFunctionImpl): Candidate =
-        CandidateFactory(inferenceComponents, callInfo).createCandidate(
+    private fun generateCandidate(callInfo: CallInfo, function: FirSimpleFunctionImpl): Candidate =
+        CandidateFactory(components, callInfo).createCandidate(
             symbol = function.symbol,
             dispatchReceiverValue = null,
             implicitExtensionReceiverValue = null,
             explicitReceiverKind = ExplicitReceiverKind.NO_EXPLICIT_RECEIVER
         )
 
-    private fun generateCallInfo(arguments: List<FirExpression>) = CallInfo(
-        callKind = CallKind.Function,
+    private fun generateCallInfo(arguments: List<FirExpression>, callKind: CallKind) = CallInfo(
+        callKind = callKind,
         explicitReceiver = null,
         arguments = arguments,
         isSafeCall = false,
         typeArguments = emptyList(),
         session = session,
         containingFile = file,
-        container = container
+        implicitReceiverStack = implicitReceiverStack
     ) { it.resultType }
 
-    private fun generateMemberFunction(session: FirSession, symbol: FirNamedFunctionSymbol, name: Name, returnType: FirTypeRef) =
-        FirMemberFunctionImpl(
+    private fun generateSyntheticSelectFunction(callableId: CallableId): FirSimpleFunctionImpl {
+        // Synthetic function signature:
+        //   fun <K> select(vararg values: K): K
+        val functionSymbol = FirSyntheticFunctionSymbol(callableId)
+        val typeParameterSymbol = FirTypeParameterSymbol()
+        val typeParameter =
+            FirTypeParameterImpl(null, session, Name.identifier("K"), typeParameterSymbol, Variance.INVARIANT, false).apply {
+                addDefaultBoundIfNecessary()
+            }
+
+        val returnType = FirResolvedTypeRefImpl(null, ConeTypeParameterTypeImpl(typeParameterSymbol.toLookupTag(), false))
+
+        val argumentType = FirResolvedTypeRefImpl(null, returnType.coneTypeUnsafe<ConeKotlinType>().createArrayOf(session))
+        val typeArgument = FirTypeProjectionWithVarianceImpl(null, returnType, Variance.INVARIANT)
+
+        return generateMemberFunction(session, functionSymbol, callableId.callableName, typeArgument.typeRef).apply {
+            typeParameters += typeParameter
+            valueParameters += argumentType.toValueParameter(session, "branches", isVararg = true)
+        }
+    }
+
+    private fun generateSyntheticCheckNotNullFunction(): FirSimpleFunctionImpl {
+        // Synthetic function signature:
+        //   fun <K> checkNotNull(arg: K?): K
+        //
+        // Note: The upper bound of `K` cannot be `Any` because of the following case:
+        //   fun <X> test(a: X) = a!!
+        // `X` is not a subtype of `Any` and hence cannot satisfy `K` if it had an upper bound of `Any`.
+        val functionSymbol = FirSyntheticFunctionSymbol(SyntheticCallableId.CHECK_NOT_NULL)
+        val typeParameterSymbol = FirTypeParameterSymbol()
+        val typeParameter =
+            FirTypeParameterImpl(null, session, Name.identifier("K"), typeParameterSymbol, Variance.INVARIANT, false).apply {
+                addDefaultBoundIfNecessary()
+            }
+
+        val returnType = FirResolvedTypeRefImpl(null, ConeTypeParameterTypeImpl(typeParameterSymbol.toLookupTag(), false))
+
+        val argumentType =
+            FirResolvedTypeRefImpl(null, returnType.coneTypeUnsafe<ConeKotlinType>().withNullability(ConeNullability.NULLABLE))
+        val typeArgument = FirTypeProjectionWithVarianceImpl(null, returnType, Variance.INVARIANT)
+
+        return generateMemberFunction(
+            session,
+            functionSymbol,
+            SyntheticCallableId.CHECK_NOT_NULL.callableName,
+            typeArgument.typeRef
+        ).apply {
+            typeParameters += typeParameter
+            valueParameters += argumentType.toValueParameter(session, "arg")
+        }
+    }
+
+    private fun generateMemberFunction(session: FirSession, symbol: FirNamedFunctionSymbol, name: Name, returnType: FirTypeRef): FirSimpleFunctionImpl {
+        val status = FirDeclarationStatusImpl(Visibilities.PUBLIC, Modality.FINAL).apply {
+            isExpect = false
+            isActual = false
+            isOverride = false
+            isOperator = false
+            isInfix = false
+            isInline = false
+            isTailRec = false
+            isExternal = false
+            isSuspend = false
+        }
+        return FirSimpleFunctionImpl(
             session = session,
-            psi = null,
+            source = null,
             symbol = symbol,
             name = name,
-            visibility = Visibilities.PUBLIC,
-            modality = Modality.FINAL,
-            isExpect = false,
-            isActual = false,
-            isOverride = false,
-            isOperator = false,
-            isInfix = false,
-            isInline = false,
-            isTailRec = false,
-            isExternal = false,
-            isSuspend = false,
+            status = status,
             receiverTypeRef = null,
             returnTypeRef = returnType
         ).apply {
             this.resolvePhase = FirResolvePhase.BODY_RESOLVE
         }
+    }
 
-    private fun FirResolvedTypeRef.toValueParameter(session: FirSession, name: String, isVararg: Boolean = false) = FirValueParameterImpl(
-        session = session,
-        psi = null,
-        name = Name.identifier(name),
-        returnTypeRef = this,
-        defaultValue = null,
-        isCrossinline = false,
-        isNoinline = false,
-        isVararg = isVararg
-    ).apply {
-        this.resolvePhase = FirResolvePhase.BODY_RESOLVE
+    private fun FirResolvedTypeRef.toValueParameter(session: FirSession, name: String, isVararg: Boolean = false): FirValueParameterImpl {
+        val name = Name.identifier(name)
+        return FirValueParameterImpl(
+            session = session,
+            source = null,
+            name = name,
+            returnTypeRef = this,
+            defaultValue = null,
+            isCrossinline = false,
+            isNoinline = false,
+            isVararg = isVararg,
+            symbol = FirVariableSymbol(name)
+        ).apply {
+            this.resolvePhase = FirResolvePhase.BODY_RESOLVE
+        }
+    }
+}
+
+private object UpdateReference : FirTransformer<FirNamedReferenceWithCandidate>() {
+    override fun <E : FirElement> transformElement(element: E, data: FirNamedReferenceWithCandidate): CompositeTransformResult<E> {
+        return element.compose()
+    }
+
+    override fun transformReference(reference: FirReference, data: FirNamedReferenceWithCandidate): CompositeTransformResult<FirReference> {
+        return data.compose()
     }
 }

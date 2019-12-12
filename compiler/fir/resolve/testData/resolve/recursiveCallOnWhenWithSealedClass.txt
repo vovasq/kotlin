@@ -1,6 +1,6 @@
 FILE: recursiveCallOnWhenWithSealedClass.kt
     public sealed class Maybe<T> : R|kotlin/Any| {
-        private constructor<T>(): R|Maybe<T>| {
+        public constructor<T>(): R|Maybe<T>| {
             super<R|kotlin/Any|>()
         }
 
@@ -27,13 +27,13 @@ FILE: recursiveCallOnWhenWithSealedClass.kt
 
         }
 
-        public final fun unwrap(): <ERROR TYPE REF: Inapplicable when expression> {
-            ^unwrap when (this#) {
+        public final fun unwrap(): R|T| {
+            ^unwrap when (this@R|/Maybe|) {
                 ($subj$ is R|Maybe.Nope|) ->  {
                     throw R|java/lang/Exception.Exception|(String())
                 }
                 ($subj$ is R|Maybe.Yeah|) ->  {
-                    <Unresolved name: meat>#
+                    this@R|/Maybe.Yeah|.R|/Maybe.Yeah.meat|
                 }
             }
 

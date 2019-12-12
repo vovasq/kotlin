@@ -11,28 +11,39 @@ import java.io.File
 import java.util.*
 import java.util.regex.Pattern
 
-class TestGroup(private val testsRoot: String, val testDataRoot: String, val testRunnerMethodName: String) {
+class TestGroup(
+    private val testsRoot: String,
+    val testDataRoot: String,
+    val testRunnerMethodName: String,
+    val additionalRunnerArguments: List<String> = emptyList(),
+    val annotations: List<AnnotationModel> = emptyList()
+) {
     inline fun <reified T : TestCase> testClass(
         suiteTestClassName: String = getDefaultSuiteTestClassName(T::class.java.simpleName),
+        useJunit4: Boolean = false,
+        annotations: List<AnnotationModel> = emptyList(),
         noinline init: TestClass.() -> Unit
     ) {
-        testClass(T::class.java.name, suiteTestClassName, init)
+        testClass(T::class.java.name, suiteTestClassName, useJunit4, annotations, init)
     }
 
     fun testClass(
         baseTestClassName: String,
         suiteTestClassName: String = getDefaultSuiteTestClassName(baseTestClassName.substringAfterLast('.')),
+        useJunit4: Boolean,
+        annotations: List<AnnotationModel> = emptyList(),
         init: TestClass.() -> Unit
     ) {
         TestGenerator(
             testsRoot,
             suiteTestClassName,
             baseTestClassName,
-            TestClass().apply(init).testModels
+            TestClass(annotations).apply(init).testModels,
+            useJunit4
         ).generateAndSave()
     }
 
-    inner class TestClass {
+    inner class TestClass(val annotations: List<AnnotationModel>) {
         val testModels = ArrayList<TestClassModel>()
 
         fun model(
@@ -58,13 +69,13 @@ class TestGroup(private val testsRoot: String, val testDataRoot: String, val tes
                     if (excludeDirs.isNotEmpty()) error("excludeDirs is unsupported for SingleClassTestModel yet")
                     SingleClassTestModel(
                         rootFile, compiledPattern, filenameStartsLowerCase, testMethod, className, targetBackend,
-                        skipIgnored, testRunnerMethodName
+                        skipIgnored, testRunnerMethodName, additionalRunnerArguments, annotations
                     )
                 } else {
                     SimpleTestClassModel(
                         rootFile, recursive, excludeParentDirs,
                         compiledPattern, filenameStartsLowerCase, testMethod, className,
-                        targetBackend, excludeDirs, skipIgnored, testRunnerMethodName, deep
+                        targetBackend, excludeDirs, skipIgnored, testRunnerMethodName, additionalRunnerArguments, deep, annotations
                     )
                 }
             )
@@ -76,9 +87,10 @@ fun testGroup(
     testsRoot: String,
     testDataRoot: String,
     testRunnerMethodName: String = RunTestMethodModel.METHOD_NAME,
+    additionalRunnerArguments: List<String> = emptyList(),
     init: TestGroup.() -> Unit
 ) {
-    TestGroup(testsRoot, testDataRoot, testRunnerMethodName).init()
+    TestGroup(testsRoot, testDataRoot, testRunnerMethodName, additionalRunnerArguments).init()
 }
 
 fun getDefaultSuiteTestClassName(baseTestClassName: String): String {

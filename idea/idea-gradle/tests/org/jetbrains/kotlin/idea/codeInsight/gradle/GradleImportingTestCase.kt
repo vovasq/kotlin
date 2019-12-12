@@ -28,7 +28,6 @@ import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.impl.LoadTextUtil
 import com.intellij.openapi.fileTypes.FileTypeManager
 import com.intellij.openapi.projectRoots.JavaSdk
-import com.intellij.openapi.projectRoots.ProjectJdkTable
 import com.intellij.openapi.projectRoots.impl.SdkConfigurationUtil
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.TestDialog
@@ -45,14 +44,18 @@ import org.intellij.lang.annotations.Language
 import org.jetbrains.annotations.NonNls
 import org.jetbrains.kotlin.idea.test.KotlinSdkCreationChecker
 import org.jetbrains.kotlin.idea.test.PluginTestCaseBase
+import org.jetbrains.kotlin.idea.util.getProjectJdkTableSafe
 import org.jetbrains.kotlin.test.JUnitParameterizedWithIdeaConfigurationRunner
 import org.jetbrains.kotlin.test.KotlinTestUtils
+import org.jetbrains.kotlin.test.RunnerFactoryWithMuteInDatabase
 import org.jetbrains.plugins.gradle.settings.DistributionType
 import org.jetbrains.plugins.gradle.settings.GradleProjectSettings
 import org.jetbrains.plugins.gradle.settings.GradleSettings
 import org.jetbrains.plugins.gradle.util.GradleConstants
 import org.jetbrains.plugins.groovy.GroovyFileType
+import org.junit.AfterClass
 import org.junit.Assume.assumeThat
+import org.junit.Assume.assumeTrue
 import org.junit.BeforeClass
 import org.junit.Rule
 import org.junit.rules.TestName
@@ -63,11 +66,10 @@ import java.io.IOException
 import java.io.StringWriter
 import java.net.URISyntaxException
 import java.util.*
-import org.junit.AfterClass
-import org.junit.Assume.assumeTrue
 
 // part of org.jetbrains.plugins.gradle.importing.GradleImportingTestCase
 @RunWith(value = JUnitParameterizedWithIdeaConfigurationRunner::class)
+@Parameterized.UseParametersRunnerFactory(RunnerFactoryWithMuteInDatabase::class)
 abstract class GradleImportingTestCase : ExternalSystemImportingTestCase() {
 
     protected var sdkCreationChecker : KotlinSdkCreationChecker? = null
@@ -101,7 +103,7 @@ abstract class GradleImportingTestCase : ExternalSystemImportingTestCase() {
             "-Xmx256m -XX:MaxPermSize=64m"
         else ->
             // 128M should be enough for gradle 5.0+ (leak is fixed), and <4.0 (amount of tests is less)
-            "-Xmx128m -XX:MaxPermSize=64m"
+            "-Xms128M -Xmx128m -XX:MaxPermSize=64m"
     }
 
     override fun setUp() {
@@ -110,13 +112,14 @@ abstract class GradleImportingTestCase : ExternalSystemImportingTestCase() {
         assumeTrue(isApplicableTest())
         assumeThat(gradleVersion, versionMatcherRule.matcher)
         runWrite {
-            ProjectJdkTable.getInstance().findJdk(GRADLE_JDK_NAME)?.let {
-                ProjectJdkTable.getInstance().removeJdk(it)
+            val jdkTable = getProjectJdkTableSafe()
+            jdkTable.findJdk(GRADLE_JDK_NAME)?.let {
+                jdkTable.removeJdk(it)
             }
             val jdkHomeDir = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(File(myJdkHome))!!
             val jdk = SdkConfigurationUtil.setupSdk(arrayOfNulls(0), jdkHomeDir, JavaSdk.getInstance(), true, null, GRADLE_JDK_NAME)
             TestCase.assertNotNull("Cannot create JDK for $myJdkHome", jdk)
-            ProjectJdkTable.getInstance().addJdk(jdk!!)
+            jdkTable.addJdk(jdk!!)
             FileTypeManager.getInstance().associateExtension(GroovyFileType.GROOVY_FILE_TYPE, "gradle")
 
         }
@@ -135,7 +138,7 @@ abstract class GradleImportingTestCase : ExternalSystemImportingTestCase() {
     override fun tearDown() {
         try {
             runWrite {
-                val old = ProjectJdkTable.getInstance().findJdk(GRADLE_JDK_NAME)
+                val old = getProjectJdkTableSafe().findJdk(GRADLE_JDK_NAME)
                 if (old != null) {
                     SdkConfigurationUtil.removeSdk(old)
                 }
@@ -228,12 +231,12 @@ abstract class GradleImportingTestCase : ExternalSystemImportingTestCase() {
 
     protected open fun testDataDirName(): String = ""
 
-    protected fun testDataDirectory(): File {
+    protected open fun testDataDirectory(): File {
         val baseDir = "${PluginTestCaseBase.getTestDataPathBase()}/gradle/${testDataDirName()}/"
         return File(baseDir, getTestName(true).substringBefore("_"))
     }
 
-    protected open fun configureByFiles(): List<VirtualFile> {
+    protected open fun configureByFiles(properties: Map<String, String>? = null): List<VirtualFile> {
         val rootDir = testDataDirectory()
         assert(rootDir.exists()) { "Directory ${rootDir.path} doesn't exist" }
 
@@ -241,7 +244,11 @@ abstract class GradleImportingTestCase : ExternalSystemImportingTestCase() {
             when {
                 it.isDirectory -> null
                 !it.name.endsWith(SUFFIX) -> {
-                    createProjectSubFile(it.path.substringAfter(rootDir.path + File.separator), it.readText())
+                    var text = it.readText()
+                    (properties ?: mapOf("kotlin_plugin_version" to LATEST_STABLE_GRADLE_PLUGIN_VERSION)).forEach { key, value ->
+                        text = text.replace("{{${key}}}", value)
+                    }
+                    createProjectSubFile(it.path.substringAfter(rootDir.path + File.separator), text)
                 }
                 else -> null
             }

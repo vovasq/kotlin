@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.idea.scratch.actions
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.impl.text.TextEditorProvider
 import org.jetbrains.kotlin.idea.scratch.getScratchFile
 import org.jetbrains.kotlin.idea.scratch.getScratchFileFromSelectedEditor

@@ -12,6 +12,7 @@ import com.intellij.psi.PsiDocumentManager
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.idea.conversion.copy.AbstractJavaToKotlinCopyPasteConversionTest
 import org.jetbrains.kotlin.idea.conversion.copy.ConvertJavaCopyPasteProcessor
+import org.jetbrains.kotlin.idea.perf.Stats.Companion.WARM_UP
 import org.jetbrains.kotlin.idea.testFramework.commitAllDocuments
 import org.jetbrains.kotlin.j2k.J2kConverterExtension
 import org.jetbrains.kotlin.test.InTextDirectivesUtils
@@ -46,29 +47,28 @@ abstract class AbstractPerformanceJavaToKotlinCopyPasteConversionTest(private va
     }
 
     private fun doWarmUpPerfTest() {
-        stats().perfTest<Unit, Unit>(
-            testName = "warm-up",
-            setUp = {
+        performanceTest<Unit, Unit> {
+            name(WARM_UP)
+            stats(stats())
+            setUp {
                 with(myFixture) {
                     configureByText(JavaFileType.INSTANCE, "<selection>public class Foo {\nprivate String value;\n}</selection>")
                     performEditorAction(IdeActions.ACTION_CUT)
                     configureByText(KotlinFileType.INSTANCE, "<caret>")
                 }
                 ConvertJavaCopyPasteProcessor.conversionPerformed = false
-            },
-            test = {
+            }
+            test {
                 myFixture.performEditorAction(IdeActions.ACTION_PASTE)
-            },
-            tearDown = {
+            }
+            tearDown {
                 val document = myFixture.getDocument(myFixture.file)
                 PsiDocumentManager.getInstance(project).commitDocument(document)
                 kotlin.test.assertFalse(!ConvertJavaCopyPasteProcessor.conversionPerformed, "No conversion to Kotlin suggested")
                 assertEquals("class Foo {\n    private val value: String? = null\n}", myFixture.file.text)
-                runWriteAction {
-                    myFixture.file.delete()
-                }
+                deleteFixtureFile()
             }
-        )
+        }
     }
 
     private fun j2kIndex(): Int {
@@ -85,9 +85,10 @@ abstract class AbstractPerformanceJavaToKotlinCopyPasteConversionTest(private va
         val fileText = myFixture.editor.document.text
         val noConversionExpected = InTextDirectivesUtils.findListWithPrefixes(fileText, "// NO_CONVERSION_EXPECTED").isNotEmpty()
 
-        stats().perfTest<Unit, Unit>(
-            testName = testName,
-            setUp = {
+        performanceTest<Unit, Unit> {
+            name(testName)
+            stats(stats())
+            setUp {
                 myFixture.configureByFiles("$testName.java")
 
                 myFixture.performEditorAction(IdeActions.ACTION_COPY)
@@ -97,17 +98,22 @@ abstract class AbstractPerformanceJavaToKotlinCopyPasteConversionTest(private va
                 configureTargetFile("$testName.to.kt")
 
                 ConvertJavaCopyPasteProcessor.conversionPerformed = false
-            },
-            test = {
+            }
+            test {
                 perfTestCore()
-            },
-            tearDown = {
+            }
+            tearDown {
                 commitAllDocuments()
                 validate(path, noConversionExpected)
-
-                myFixture.performEditorAction(IdeActions.ACTION_UNDO)
+                deleteFixtureFile()
             }
-        )
+        }
+    }
+
+    private fun deleteFixtureFile() {
+        runWriteAction {
+            myFixture.file.delete()
+        }
     }
 
     private fun perfTestCore() {

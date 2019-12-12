@@ -11,7 +11,6 @@ import com.intellij.debugger.engine.events.DebuggerCommandImpl
 import com.intellij.debugger.impl.DebuggerContextImpl
 import com.intellij.psi.PsiElement
 import com.sun.jdi.*
-import com.sun.tools.jdi.LocalVariableImpl
 import org.jetbrains.kotlin.codegen.binding.CodegenBinding.asmTypeForAnonymousClass
 import org.jetbrains.kotlin.codegen.coroutines.DO_RESUME_METHOD_NAME
 import org.jetbrains.kotlin.codegen.coroutines.INVOKE_SUSPEND_METHOD_NAME
@@ -129,11 +128,9 @@ private class MockStackFrame(private val location: Location, private val vm: Vir
             val allVariables = location.method().safeVariables() ?: emptyList()
             val map = HashMap<String, LocalVariable>(allVariables.size)
 
-            for (allVariable in allVariables) {
-                val variable = allVariable as LocalVariableImpl
-                val name = variable.name()
+            for (variable in allVariables) {
                 if (variable.isVisible(this)) {
-                    map.put(name, variable)
+                    map.put(variable.name(), variable)
                 }
             }
             visibleVariables = map
@@ -216,19 +213,21 @@ fun findElementAtLine(file: KtFile, line: Int): PsiElement? {
     val lineStartOffset = file.getLineStartOffset(line) ?: return null
     val lineEndOffset = file.getLineEndOffset(line) ?: return null
 
-    var topMostElement: PsiElement? = null
-    var elementAt: PsiElement?
-    for (offset in lineStartOffset until lineEndOffset) {
-        elementAt = file.findElementAt(offset)
-        if (elementAt != null) {
-            topMostElement = CodeInsightUtils.getTopmostElementAtOffset(elementAt, offset)
-            if (topMostElement is KtElement) {
-                break
+    return runReadAction {
+        var topMostElement: PsiElement? = null
+        var elementAt: PsiElement?
+        for (offset in lineStartOffset until lineEndOffset) {
+            elementAt = file.findElementAt(offset)
+            if (elementAt != null) {
+                topMostElement = CodeInsightUtils.getTopmostElementAtOffset(elementAt, offset)
+                if (topMostElement is KtElement) {
+                    break
+                }
             }
         }
-    }
 
-    return topMostElement
+        topMostElement
+    }
 }
 
 fun findCallByEndToken(element: PsiElement): KtCallExpression? {

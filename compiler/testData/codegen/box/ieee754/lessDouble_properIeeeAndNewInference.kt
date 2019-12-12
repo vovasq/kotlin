@@ -1,3 +1,4 @@
+// IGNORE_BACKEND_FIR: JVM_IR
 // !LANGUAGE: +ProperIeee754Comparisons +NewInference
 
 fun box(): String {

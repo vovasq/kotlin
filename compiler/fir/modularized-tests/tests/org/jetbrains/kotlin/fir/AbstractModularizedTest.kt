@@ -11,18 +11,25 @@ import org.jetbrains.kotlin.types.AbstractTypeChecker
 import org.w3c.dom.Node
 import org.w3c.dom.NodeList
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 import javax.xml.parsers.DocumentBuilderFactory
 
 data class ModuleData(
     val name: String,
-    val outputDir: String,
+    val rawOutputDir: String,
     val qualifier: String,
-    val classpath: List<File>,
-    val sources: List<File>,
-    val javaSourceRoots: List<File>,
+    val rawClasspath: List<String>,
+    val rawSources: List<String>,
+    val rawJavaSourceRoots: List<String>,
     val isCommon: Boolean
 ) {
     val qualifiedName get() = if (name in qualifier) qualifier else "$name.$qualifier"
+
+    val outputDir = File(ROOT_PATH_PREFIX, rawOutputDir.removePrefix("/"))
+    val classpath = rawClasspath.map { File(ROOT_PATH_PREFIX, it.removePrefix("/")) }
+    val sources = rawSources.map { File(ROOT_PATH_PREFIX, it.removePrefix("/")) }
+    val javaSourceRoots = rawJavaSourceRoots.map { File(ROOT_PATH_PREFIX, it.removePrefix("/")) }
 }
 
 private fun NodeList.toList(): List<Node> {
@@ -36,10 +43,26 @@ private fun NodeList.toList(): List<Node> {
 
 private val Node.childNodesList get() = childNodes.toList()
 
+private val ROOT_PATH_PREFIX = System.getProperty("fir.bench.prefix", "/")
+
 abstract class AbstractModularizedTest : KtUsefulTestCase() {
+    private val folderDateFormat = SimpleDateFormat("yyyy-MM-dd")
+    private lateinit var startDate: Date
+
+    protected fun reportDir() = File(FIR_LOGS_PATH, folderDateFormat.format(startDate))
+        .also {
+            it.mkdirs()
+        }
+
+    protected val reportDateStr by lazy {
+        val reportDateFormat = SimpleDateFormat("yyyy-MM-dd__HH-mm")
+        reportDateFormat.format(startDate)
+    }
+
     override fun setUp() {
         super.setUp()
         AbstractTypeChecker.RUN_SLOW_ASSERTIONS = false
+        startDate = Date()
     }
 
     override fun tearDown() {
@@ -58,9 +81,9 @@ abstract class AbstractModularizedTest : KtUsefulTestCase() {
         val moduleName = moduleElement.attributes.getNamedItem("name").nodeValue
         val outputDir = moduleElement.attributes.getNamedItem("outputDir").nodeValue
         val moduleNameQualifier = outputDir.substringAfterLast("/")
-        val javaSourceRoots = mutableListOf<File>()
-        val classpath = mutableListOf<File>()
-        val sources = mutableListOf<File>()
+        val javaSourceRoots = mutableListOf<String>()
+        val classpath = mutableListOf<String>()
+        val sources = mutableListOf<String>()
         var isCommon = false
 
         for (index in 0 until moduleElement.childNodes.length) {
@@ -69,14 +92,14 @@ abstract class AbstractModularizedTest : KtUsefulTestCase() {
             if (item.nodeName == "classpath") {
                 val path = item.attributes.getNamedItem("path").nodeValue
                 if (path != outputDir) {
-                    classpath += File(path)
+                    classpath += path
                 }
             }
             if (item.nodeName == "javaSourceRoots") {
-                javaSourceRoots += File(item.attributes.getNamedItem("path").nodeValue)
+                javaSourceRoots += item.attributes.getNamedItem("path").nodeValue
             }
             if (item.nodeName == "sources") {
-                sources += File(item.attributes.getNamedItem("path").nodeValue)
+                sources += item.attributes.getNamedItem("path").nodeValue
             }
             if (item.nodeName == "commonSources") {
                 isCommon = true
@@ -89,6 +112,7 @@ abstract class AbstractModularizedTest : KtUsefulTestCase() {
 
     protected abstract fun beforePass()
     protected abstract fun afterPass(pass: Int)
+    protected open fun afterAllPasses() {}
     protected abstract fun processModule(moduleData: ModuleData): ProcessorAction
 
     protected fun runTestOnce(pass: Int) {
@@ -100,8 +124,9 @@ abstract class AbstractModularizedTest : KtUsefulTestCase() {
 
         val filterRegex = (System.getProperty("fir.bench.filter") ?: ".*").toRegex()
         val modules =
-            root.listFiles().sortedBy { it.lastModified() }.map { loadModule(it) }
-                .filter { it.outputDir.matches(filterRegex) }
+            root.listFiles().filter { it.extension == "xml" }
+                .sortedBy { it.lastModified() }.map { loadModule(it) }
+                .filter { it.rawOutputDir.matches(filterRegex) }
                 .filter { !it.isCommon }
 
 

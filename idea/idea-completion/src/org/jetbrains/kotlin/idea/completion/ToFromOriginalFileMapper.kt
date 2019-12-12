@@ -21,7 +21,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.psiUtil.startOffset
-import org.jetbrains.kotlin.utils.KotlinExceptionWithAttachments
+import org.jetbrains.kotlin.utils.checkWithAttachment
 import kotlin.math.min
 
 class ToFromOriginalFileMapper private constructor(
@@ -47,14 +47,13 @@ class ToFromOriginalFileMapper private constructor(
     init {
         val originalText = originalFile.text
         val syntheticText = syntheticFile.text
-        val originalSubSequence = originalText.subSequence(0, completionOffset)
-        val syntheticSubSequence = syntheticText.subSequence(0, completionOffset)
-        if (originalSubSequence != syntheticSubSequence) {
-            throw KotlinExceptionWithAttachments(
-                "original subText [len: ${originalSubSequence.length}]" +
-                        " does not match synthetic subText [len: ${syntheticSubSequence.length}]"
-            )
-                .withAttachment("original subText", originalSubSequence.toString())
+        val originalSubSequence = originalText.take(completionOffset)
+        val syntheticSubSequence = syntheticText.take(completionOffset)
+        checkWithAttachment(originalSubSequence == syntheticSubSequence, {
+            "original subText [len: ${originalSubSequence.length}]" +
+                    " does not match synthetic subText [len: ${syntheticSubSequence.length}]"
+        }) {
+            it.withAttachment("original subText", originalSubSequence.toString())
                 .withAttachment("synthetic subText", syntheticSubSequence.toString())
         }
 

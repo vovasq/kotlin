@@ -9,14 +9,13 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.search.GlobalSearchScope
 import org.jetbrains.kotlin.analyzer.ModuleInfo
 import org.jetbrains.kotlin.fir.FirModuleBasedSession
-import org.jetbrains.kotlin.fir.builder.RawFirBuilder
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.java.JavaSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.FirProvider
 import org.jetbrains.kotlin.fir.resolve.FirSymbolProvider
+import org.jetbrains.kotlin.fir.resolve.firProvider
 import org.jetbrains.kotlin.fir.resolve.impl.FirCompositeSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.impl.FirDependenciesSymbolProviderImpl
-import org.jetbrains.kotlin.fir.service
 import org.jetbrains.kotlin.fir.types.FirCorrespondingSupertypesCache
 
 
@@ -30,16 +29,15 @@ class FirIdeJavaModuleBasedSession(
 
 
     init {
-        sessionProvider.sessionCache[moduleInfo] = this
         registerComponent(
             FirProvider::class,
-            IdeFirProvider(project, scope, RawFirBuilder(this, stubMode = false), this)
+            IdeFirProvider(project, scope, this)
         )
         registerComponent(
             FirSymbolProvider::class,
             FirCompositeSymbolProvider(
                 listOf(
-                    service<FirProvider>(),
+                    firProvider,
                     JavaSymbolProvider(this, sessionProvider.project, scope),
                     dependenciesProvider ?: FirDependenciesSymbolProviderImpl(this)
                 )

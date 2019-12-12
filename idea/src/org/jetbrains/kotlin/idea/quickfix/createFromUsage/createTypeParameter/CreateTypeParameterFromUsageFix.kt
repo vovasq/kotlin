@@ -24,18 +24,22 @@ import com.intellij.psi.search.searches.ReferencesSearch
 import com.intellij.usageView.UsageViewTypeLocation
 import org.jetbrains.kotlin.diagnostics.Errors
 import org.jetbrains.kotlin.idea.caches.resolve.analyze
+import org.jetbrains.kotlin.idea.caches.resolve.getResolutionFacade
 import org.jetbrains.kotlin.idea.core.ShortenReferences
 import org.jetbrains.kotlin.idea.core.addTypeParameter
 import org.jetbrains.kotlin.idea.core.replaced
 import org.jetbrains.kotlin.idea.core.util.runSynchronouslyWithProgress
 import org.jetbrains.kotlin.idea.intentions.InsertExplicitTypeArgumentsIntention
 import org.jetbrains.kotlin.idea.quickfix.createFromUsage.CreateFromUsageFixBase
+import org.jetbrains.kotlin.idea.resolve.frontendService
 import org.jetbrains.kotlin.idea.util.IdeDescriptorRenderers
 import org.jetbrains.kotlin.idea.util.application.runReadAction
 import org.jetbrains.kotlin.idea.util.application.runWriteAction
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.getParentOfTypeAndBranch
+import org.jetbrains.kotlin.psi.psiUtil.quoteIfNeeded
 import org.jetbrains.kotlin.resolve.lazy.BodyResolveMode
+import org.jetbrains.kotlin.storage.StorageManager
 import org.jetbrains.kotlin.types.TypeProjectionImpl
 import org.jetbrains.kotlin.types.TypeSubstitutor
 import org.jetbrains.kotlin.types.Variance
@@ -63,6 +67,7 @@ class CreateTypeParameterFromUsageFix(
 
     fun doInvoke(): List<KtTypeParameter> {
         val declaration = data.declaration
+        if (!declaration.isWritable) return emptyList()
         val project = declaration.project
         val usages = project.runSynchronouslyWithProgress("Searching ${declaration.name}...", true) {
             runReadAction {
@@ -96,12 +101,15 @@ class CreateTypeParameterFromUsageFix(
                     IdeDescriptorRenderers.SOURCE_CODE.renderType(upperBoundType)
                 } else null
                 val upperBound = upperBoundText?.let { psiFactory.createType(it) }
-                val newTypeParameterText = if (upperBound != null) "${typeParameter.name} : ${upperBound.text}" else typeParameter.name
+                val typeParameterName = typeParameter.name.quoteIfNeeded()
+                val newTypeParameterText = if (upperBound != null) "$typeParameterName : ${upperBound.text}" else typeParameterName
                 val newTypeParameter = declaration.addTypeParameter(psiFactory.createTypeParameter(newTypeParameterText))
                     ?: error("Couldn't create type parameter from '$newTypeParameterText' for '$declaration'")
                 elementsToShorten += newTypeParameter
 
-                val anonymizedTypeParameter = createFakeTypeParameterDescriptor(typeParameter.fakeTypeParameter.containingDeclaration, "_")
+                val anonymizedTypeParameter = createFakeTypeParameterDescriptor(
+                    typeParameter.fakeTypeParameter.containingDeclaration, "_", typeParameter.fakeTypeParameter.storageManager
+                )
                 val anonymizedUpperBoundText = upperBoundType?.let {
                     TypeSubstitutor
                         .create(mapOf(typeParameter.fakeTypeParameter.typeConstructor to TypeProjectionImpl(anonymizedTypeParameter.defaultType)))

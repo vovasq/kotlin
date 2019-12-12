@@ -8,7 +8,7 @@ package org.jetbrains.kotlin.fir.backend
 import org.jetbrains.kotlin.fir.declarations.FirClass
 import org.jetbrains.kotlin.fir.declarations.FirFunction
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
-import org.jetbrains.kotlin.fir.expressions.FirVariable
+import org.jetbrains.kotlin.fir.declarations.FirVariable
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
@@ -43,7 +43,7 @@ class Fir2IrLocalStorage {
         return null
     }
 
-    fun getLocalClass(localClass: FirClass): IrClass? {
+    fun getLocalClass(localClass: FirClass<*>): IrClass? {
         for (cache in cacheStack.asReversed()) {
             val local = cache.getLocalClass(localClass)
             if (local != null) return local
@@ -67,7 +67,7 @@ class Fir2IrLocalStorage {
         cacheStack.last().putVariable(firVariable, irVariable)
     }
 
-    fun putLocalClass(firClass: FirClass, irClass: IrClass) {
+    fun putLocalClass(firClass: FirClass<*>, irClass: IrClass) {
         cacheStack.last().putLocalClass(firClass, irClass)
     }
 

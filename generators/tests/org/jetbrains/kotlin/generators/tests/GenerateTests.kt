@@ -18,10 +18,12 @@ import org.jetbrains.kotlin.asJava.classes.AbstractUltraLightFacadeClassTest
 import org.jetbrains.kotlin.checkers.*
 import org.jetbrains.kotlin.copyright.AbstractUpdateKotlinCopyrightTest
 import org.jetbrains.kotlin.findUsages.AbstractFindUsagesTest
+import org.jetbrains.kotlin.findUsages.AbstractFindUsagesWithDisableComponentSearchTest
 import org.jetbrains.kotlin.findUsages.AbstractKotlinFindUsagesWithLibraryTest
 import org.jetbrains.kotlin.formatter.AbstractFormatterTest
 import org.jetbrains.kotlin.formatter.AbstractTypingIndentationTestBase
 import org.jetbrains.kotlin.generators.tests.generator.TestGroup
+import org.jetbrains.kotlin.generators.tests.generator.muteExtraSuffix
 import org.jetbrains.kotlin.generators.tests.generator.testGroup
 import org.jetbrains.kotlin.generators.util.KT_OR_KTS
 import org.jetbrains.kotlin.generators.util.KT_OR_KTS_WITHOUT_DOTS_IN_NAME
@@ -53,9 +55,9 @@ import org.jetbrains.kotlin.idea.conversion.copy.AbstractLiteralKotlinToKotlinCo
 import org.jetbrains.kotlin.idea.conversion.copy.AbstractLiteralTextToKotlinCopyPasteTest
 import org.jetbrains.kotlin.idea.conversion.copy.AbstractTextJavaToKotlinCopyPasteConversionTest
 import org.jetbrains.kotlin.idea.coverage.AbstractKotlinCoverageOutputFilesTest
-import org.jetbrains.kotlin.idea.debugger.*
 import org.jetbrains.kotlin.idea.debugger.evaluate.*
-import org.jetbrains.kotlin.idea.debugger.sequence.exec.AbstractSequenceTraceTestCase
+import org.jetbrains.kotlin.idea.debugger.test.sequence.exec.AbstractSequenceTraceTestCase
+import org.jetbrains.kotlin.idea.debugger.test.*
 import org.jetbrains.kotlin.idea.decompiler.navigation.AbstractNavigateToDecompiledLibraryTest
 import org.jetbrains.kotlin.idea.decompiler.navigation.AbstractNavigateToLibrarySourceTest
 import org.jetbrains.kotlin.idea.decompiler.navigation.AbstractNavigateToLibrarySourceTestWithJS
@@ -138,11 +140,15 @@ import org.jetbrains.kotlin.jvm.abi.AbstractJvmAbiContentTest
 import org.jetbrains.kotlin.kapt.cli.test.AbstractArgumentParsingTest
 import org.jetbrains.kotlin.kapt.cli.test.AbstractKaptToolIntegrationTest
 import org.jetbrains.kotlin.kapt3.test.AbstractClassFileToSourceStubConverterTest
+import org.jetbrains.kotlin.kapt3.test.AbstractIrClassFileToSourceStubConverterTest
+import org.jetbrains.kotlin.kapt3.test.AbstractIrKotlinKaptContextTest
 import org.jetbrains.kotlin.kapt3.test.AbstractKotlinKaptContextTest
+import org.jetbrains.kotlin.nj2k.AbstractNewJavaToKotlinConverterMultiFileTest
 import org.jetbrains.kotlin.nj2k.AbstractNewJavaToKotlinConverterSingleFileTest
 import org.jetbrains.kotlin.nj2k.AbstractNewJavaToKotlinCopyPasteConversionTest
 import org.jetbrains.kotlin.nj2k.AbstractTextNewJavaToKotlinCopyPasteConversionTest
 import org.jetbrains.kotlin.nj2k.inference.common.AbstractCommonConstraintCollectorTest
+import org.jetbrains.kotlin.nj2k.inference.mutability.AbstractMutabilityInferenceTest
 import org.jetbrains.kotlin.nj2k.inference.nullability.AbstractNullabilityInferenceTest
 import org.jetbrains.kotlin.noarg.AbstractBlackBoxCodegenTestForNoArg
 import org.jetbrains.kotlin.noarg.AbstractBytecodeListingTestForNoArg
@@ -159,6 +165,78 @@ import org.jetbrains.kotlinx.serialization.AbstractSerializationPluginDiagnostic
 
 fun main(args: Array<String>) {
     System.setProperty("java.awt.headless", "true")
+
+    testGroup("idea/jvm-debugger/jvm-debugger-test/test", "idea/jvm-debugger/jvm-debugger-test/testData") {
+        testClass<AbstractKotlinSteppingTest> {
+            model(
+                "stepping/stepIntoAndSmartStepInto",
+                pattern = KT_WITHOUT_DOTS_IN_NAME,
+                testMethod = "doStepIntoTest",
+                testClassName = "StepInto"
+            )
+            model(
+                "stepping/stepIntoAndSmartStepInto",
+                pattern = KT_WITHOUT_DOTS_IN_NAME,
+                testMethod = "doSmartStepIntoTest",
+                testClassName = "SmartStepInto"
+            )
+            model(
+                "stepping/stepInto",
+                pattern = KT_WITHOUT_DOTS_IN_NAME,
+                testMethod = "doStepIntoTest",
+                testClassName = "StepIntoOnly"
+            )
+            model("stepping/stepOut", pattern = KT_WITHOUT_DOTS_IN_NAME, testMethod = "doStepOutTest")
+            model("stepping/stepOver", pattern = KT_WITHOUT_DOTS_IN_NAME, testMethod = "doStepOverTest")
+            model("stepping/stepOverForce", pattern = KT_WITHOUT_DOTS_IN_NAME, testMethod = "doStepOverForceTest")
+            model("stepping/filters", pattern = KT_WITHOUT_DOTS_IN_NAME, testMethod = "doStepIntoTest")
+            model("stepping/custom", pattern = KT_WITHOUT_DOTS_IN_NAME, testMethod = "doCustomTest")
+        }
+
+        testClass<AbstractKotlinEvaluateExpressionTest> {
+            model("evaluation/singleBreakpoint", testMethod = "doSingleBreakpointTest")
+            model("evaluation/multipleBreakpoints", testMethod = "doMultipleBreakpointsTest")
+        }
+
+        testClass<AbstractSelectExpressionForDebuggerTest> {
+            model("selectExpression", recursive = false)
+            model("selectExpression/disallowMethodCalls", testMethod = "doTestWoMethodCalls")
+        }
+
+        testClass<AbstractPositionManagerTest> {
+            model("positionManager", recursive = false, extension = "kt", testClassName = "SingleFile")
+            model("positionManager", recursive = false, extension = null, testClassName = "MultiFile")
+        }
+
+        testClass<AbstractSmartStepIntoTest> {
+            model("smartStepInto")
+        }
+
+        testClass<AbstractBreakpointApplicabilityTest> {
+            model("breakpointApplicability")
+        }
+
+        testClass<AbstractFileRankingTest> {
+            model("fileRanking")
+        }
+
+        testClass<AbstractIrFileRankingTest> {
+            model("fileRanking", targetBackend = TargetBackend.JVM_IR)
+        }
+
+        testClass<AbstractAsyncStackTraceTest> {
+            model("asyncStackTrace")
+        }
+
+        testClass<AbstractCoroutineDumpTest> {
+            model("coroutines")
+        }
+
+        testClass<AbstractSequenceTraceTestCase> {
+            // TODO: implement mapping logic for terminal operations
+            model("sequence/streams/sequence", excludeDirs = listOf("terminal"))
+        }
+    }
 
     testGroup("idea/tests", "idea/testData") {
         testClass<AbstractAdditionalResolveDescriptorRendererTest> {
@@ -177,6 +255,16 @@ fun main(args: Array<String>) {
             model("checker/scripts", extension = "kts")
             model("checker/duplicateJvmSignature")
             model("checker/infos", testMethod = "doTestWithInfos")
+            model("checker/diagnosticsMessage")
+        }
+
+        testClass<AbstractFirPsiCheckerTest> {
+            model("checker", recursive = false)
+            model("checker/regression")
+            model("checker/recovery")
+            model("checker/rendering")
+            model("checker/duplicateJvmSignature")
+            model("checker/infos")
             model("checker/diagnosticsMessage")
         }
 
@@ -240,11 +328,11 @@ fun main(args: Array<String>) {
             model("navigation/gotoSymbol", testMethod = "doSymbolTest")
         }
 
-        testClass<AbstractNavigateToLibrarySourceTest> {
+        testClass<AbstractNavigateToLibrarySourceTest>(annotations = listOf(muteExtraSuffix(".libsrc"))) {
             model("decompiler/navigation/usercode")
         }
 
-        testClass<AbstractNavigateToLibrarySourceTestWithJS> {
+        testClass<AbstractNavigateToLibrarySourceTestWithJS>(annotations = listOf(muteExtraSuffix(".libsrcjs"))) {
             model("decompiler/navigation/usercode", testClassName = "UsercodeWithJSModule")
         }
 
@@ -424,6 +512,10 @@ fun main(args: Array<String>) {
             model("resolve/references", pattern = KT_WITHOUT_DOTS_IN_NAME)
         }
 
+        testClass<AbstractFirReferenceResolveTest> {
+            model("resolve/references", pattern = KT_WITHOUT_DOTS_IN_NAME)
+        }
+
         testClass<AbstractReferenceResolveInJavaTest> {
             model("resolve/referenceInJava/binaryAndSource", extension = "java")
             model("resolve/referenceInJava/sourceOnly", extension = "java")
@@ -449,6 +541,10 @@ fun main(args: Array<String>) {
             model("findUsages/kotlin", pattern = """^(.+)\.0\.(kt|kts)$""")
             model("findUsages/java", pattern = """^(.+)\.0\.java$""")
             model("findUsages/propertyFiles", pattern = """^(.+)\.0\.properties$""")
+        }
+
+        testClass<AbstractFindUsagesWithDisableComponentSearchTest> {
+            model("findUsages/kotlin/conventions/components", pattern = """^(.+)\.0\.(kt|kts)$""")
         }
 
         testClass<AbstractKotlinFindUsagesWithLibraryTest> {
@@ -635,61 +731,8 @@ fun main(args: Array<String>) {
             model("editor/optimizeImports/common", pattern = KT_WITHOUT_DOTS_IN_NAME)
         }
 
-        testClass<AbstractPositionManagerTest> {
-            model("debugger/positionManager", recursive = false, extension = "kt", testClassName = "SingleFile")
-            model("debugger/positionManager", recursive = false, extension = null, testClassName = "MultiFile")
-        }
-
-        testClass<AbstractBreakpointApplicabilityTest> {
-            model("debugger/breakpointApplicability")
-        }
-
         testClass<AbstractKotlinExceptionFilterTest> {
             model("debugger/exceptionFilter", pattern = """^([^\.]+)$""", recursive = false)
-        }
-
-        testClass<AbstractSmartStepIntoTest> {
-            model("debugger/smartStepInto")
-        }
-
-        testClass<AbstractKotlinSteppingTest> {
-            model(
-                "debugger/tinyApp/src/stepping/stepIntoAndSmartStepInto",
-                pattern = KT_WITHOUT_DOTS_IN_NAME,
-                testMethod = "doStepIntoTest",
-                testClassName = "StepInto"
-            )
-            model(
-                "debugger/tinyApp/src/stepping/stepIntoAndSmartStepInto",
-                pattern = KT_WITHOUT_DOTS_IN_NAME,
-                testMethod = "doSmartStepIntoTest",
-                testClassName = "SmartStepInto"
-            )
-            model(
-                "debugger/tinyApp/src/stepping/stepInto",
-                pattern = KT_WITHOUT_DOTS_IN_NAME,
-                testMethod = "doStepIntoTest",
-                testClassName = "StepIntoOnly"
-            )
-            model("debugger/tinyApp/src/stepping/stepOut", pattern = KT_WITHOUT_DOTS_IN_NAME, testMethod = "doStepOutTest")
-            model("debugger/tinyApp/src/stepping/stepOver", pattern = KT_WITHOUT_DOTS_IN_NAME, testMethod = "doStepOverTest")
-            model("debugger/tinyApp/src/stepping/stepOverForce", pattern = KT_WITHOUT_DOTS_IN_NAME, testMethod = "doStepOverForceTest")
-            model("debugger/tinyApp/src/stepping/filters", pattern = KT_WITHOUT_DOTS_IN_NAME, testMethod = "doStepIntoTest")
-            model("debugger/tinyApp/src/stepping/custom", pattern = KT_WITHOUT_DOTS_IN_NAME, testMethod = "doCustomTest")
-        }
-
-        testClass<AbstractKotlinEvaluateExpressionTest> {
-            model("debugger/tinyApp/src/evaluate/singleBreakpoint", testMethod = "doSingleBreakpointTest")
-            model("debugger/tinyApp/src/evaluate/multipleBreakpoints", testMethod = "doMultipleBreakpointsTest")
-        }
-
-        testClass<AbstractFileRankingTest> {
-            model("debugger/fileRanking")
-        }
-
-        testClass<AbstractSequenceTraceTestCase> {
-            // We need to implement mapping logic for terminal operations
-            model("debugger/tinyApp/src/streams/sequence", excludeDirs = listOf("terminal"))
         }
 
         testClass<AbstractStubBuilderTest> {
@@ -751,11 +794,6 @@ fun main(args: Array<String>) {
             model("refactoring/pushDown/k2k", extension = "kt", singleClass = true, testClassName = "K2K", testMethod = "doKotlinTest")
             model("refactoring/pushDown/k2j", extension = "kt", singleClass = true, testClassName = "K2J", testMethod = "doKotlinTest")
             model("refactoring/pushDown/j2k", extension = "java", singleClass = true, testClassName = "J2K", testMethod = "doJavaTest")
-        }
-
-        testClass<AbstractSelectExpressionForDebuggerTest> {
-            model("debugger/selectExpression", recursive = false)
-            model("debugger/selectExpression/disallowMethodCalls", testMethod = "doTestWoMethodCalls")
         }
 
         testClass<AbstractKotlinCoverageOutputFilesTest> {
@@ -835,6 +873,16 @@ fun main(args: Array<String>) {
             model("slicer/inflow", singleClass = true)
         }
 
+        testClass<AbstractFirMultiModuleResolveTest> {
+            model("fir/multiModule", recursive = false, extension = null)
+        }
+
+        testClass<AbstractFirLazyResolveTest> {
+            model("fir/lazyResolve", extension = "test", singleClass = true, filenameStartsLowerCase = true)
+        }
+    }
+
+    testGroup("idea/scripting-support/test", "idea/scripting-support/testData") {
         testClass<AbstractScratchRunActionTest> {
             model(
                 "scratch",
@@ -880,14 +928,6 @@ fun main(args: Array<String>) {
         testClass<AbstractScratchLineMarkersTest> {
             model("scratch/lineMarker", testMethod = "doScratchTest", pattern = KT_OR_KTS)
         }
-
-        testClass<AbstractFirMultiModuleResolveTest> {
-            model("fir/multiModule", recursive = false, extension = null)
-        }
-
-        testClass<AbstractFirLazyResolveTest> {
-            model("fir/lazyResolve", extension = "test", singleClass = true, filenameStartsLowerCase = true)
-        }
     }
 
     testGroup("idea/idea-maven/test", "idea/idea-maven/testData") {
@@ -918,7 +958,11 @@ fun main(args: Array<String>) {
         }
 
         testClass<AbstractIdeLightClassTest> {
-            model("asJava/lightClasses", excludeDirs = listOf("delegation"), pattern = KT_OR_KTS_WITHOUT_DOTS_IN_NAME)
+            model("asJava/lightClasses", excludeDirs = listOf("delegation", "script"), pattern = KT_WITHOUT_DOTS_IN_NAME)
+        }
+
+        testClass<AbstractIdeLightClassForScriptTest> {
+            model("asJava/script/ide", pattern = KT_OR_KTS_WITHOUT_DOTS_IN_NAME)
         }
 
         testClass<AbstractUltraLightClassSanityTest> {
@@ -1062,11 +1106,17 @@ fun main(args: Array<String>) {
         testClass<AbstractNullabilityInferenceTest> {
             model("inference/nullability")
         }
+        testClass<AbstractMutabilityInferenceTest> {
+            model("inference/mutability")
+        }
         testClass<AbstractNewJavaToKotlinCopyPasteConversionTest> {
             model("copyPaste", pattern = """^([^\.]+)\.java$""")
         }
         testClass<AbstractTextNewJavaToKotlinCopyPasteConversionTest> {
             model("copyPastePlainText", pattern = """^([^\.]+)\.txt$""")
+        }
+        testClass<AbstractNewJavaToKotlinConverterMultiFileTest> {
+            model("multiFile", extension = null, recursive = false)
         }
     }
 
@@ -1152,7 +1202,13 @@ fun main(args: Array<String>) {
             model("incremental/js", extension = null, excludeParentDirs = true)
         }
 
-        testClass<AbstractIncrementalJsKlibCompilerRunnerTest> {
+        testClass<AbstractIncrementalJsKlibCompilerRunnerTest>(annotations = listOf(muteExtraSuffix(".jsklib"))) {
+            model("incremental/pureKotlin", extension = null, recursive = false)
+            model("incremental/classHierarchyAffected", extension = null, recursive = false)
+            model("incremental/js", extension = null, excludeParentDirs = true)
+        }
+
+        testClass<AbstractIncrementalJsCompilerRunnerWithMetadataOnlyTest> {
             model("incremental/pureKotlin", extension = null, recursive = false)
             model("incremental/classHierarchyAffected", extension = null, recursive = false)
             model("incremental/js", extension = null, excludeParentDirs = true)
@@ -1213,6 +1269,14 @@ fun main(args: Array<String>) {
 
         testClass<AbstractKotlinKaptContextTest> {
             model("kotlinRunner")
+        }
+
+        testClass<AbstractIrClassFileToSourceStubConverterTest> {
+            model("converter", targetBackend = TargetBackend.JVM_IR)
+        }
+
+        testClass<AbstractIrKotlinKaptContextTest> {
+            model("kotlinRunner", targetBackend = TargetBackend.JVM_IR)
         }
     }
 
@@ -1275,6 +1339,10 @@ fun main(args: Array<String>) {
 
         testClass<AbstractPerformanceNewJavaToKotlinCopyPasteConversionTest> {
             model("copyPaste/conversion", testMethod = "doPerfTest", pattern = """^([^\.]+)\.java$""")
+        }
+
+        testClass<AbstractPerformanceLiteralKotlinToKotlinCopyPasteTest> {
+            model("copyPaste/literal", testMethod = "doPerfTest", pattern = """^([^\.]+)\.kt$""")
         }
 
         testClass<AbstractPerformanceHighlightingTest> {

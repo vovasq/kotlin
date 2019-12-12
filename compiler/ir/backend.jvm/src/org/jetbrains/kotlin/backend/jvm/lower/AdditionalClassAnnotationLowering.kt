@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.backend.jvm.lower
 
 import org.jetbrains.kotlin.backend.common.ClassLoweringPass
-import org.jetbrains.kotlin.backend.common.descriptors.WrappedEnumEntryDescriptor
 import org.jetbrains.kotlin.backend.common.ir.addChild
 import org.jetbrains.kotlin.backend.common.phaser.makeIrFilePhase
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
@@ -24,6 +23,7 @@ import org.jetbrains.kotlin.ir.builders.declarations.buildValueParameter
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrEnumEntryImpl
 import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
+import org.jetbrains.kotlin.ir.descriptors.WrappedEnumEntryDescriptor
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrGetEnumValue
@@ -141,7 +141,7 @@ private class AdditionalClassAnnotationLowering(private val context: JvmBackendC
 
         irClass.annotations.add(
             IrConstructorCallImpl.fromSymbolOwner(
-                UNDEFINED_OFFSET, UNDEFINED_OFFSET, documentedConstructor.returnType, documentedConstructor.symbol
+                UNDEFINED_OFFSET, UNDEFINED_OFFSET, documentedConstructor.returnType, documentedConstructor.symbol, 0
             )
         )
     }
@@ -162,7 +162,7 @@ private class AdditionalClassAnnotationLowering(private val context: JvmBackendC
 
         irClass.annotations.add(
             IrConstructorCallImpl.fromSymbolOwner(
-                UNDEFINED_OFFSET, UNDEFINED_OFFSET, retentionConstructor.returnType, retentionConstructor.symbol
+                UNDEFINED_OFFSET, UNDEFINED_OFFSET, retentionConstructor.returnType, retentionConstructor.symbol, 0
             ).apply {
                 putValueArgument(
                     0,
@@ -174,38 +174,33 @@ private class AdditionalClassAnnotationLowering(private val context: JvmBackendC
         )
     }
 
-    private val annotationTargetMaps: Map<JvmTarget, MutableMap<KotlinTarget, IrEnumEntry>> =
+    private val jvm6TargetMap = mutableMapOf(
+        KotlinTarget.CLASS to etType,
+        KotlinTarget.ANNOTATION_CLASS to etAnnotationType,
+        KotlinTarget.CONSTRUCTOR to etConstructor,
+        KotlinTarget.LOCAL_VARIABLE to etLocalVariable,
+        KotlinTarget.FUNCTION to etMethod,
+        KotlinTarget.PROPERTY_GETTER to etMethod,
+        KotlinTarget.PROPERTY_SETTER to etMethod,
+        KotlinTarget.FIELD to etField,
+        KotlinTarget.VALUE_PARAMETER to etParameter
+    )
+
+    private val jvm8TargetMap = jvm6TargetMap + mutableMapOf(
+        KotlinTarget.TYPE_PARAMETER to etTypeParameter,
+        KotlinTarget.TYPE to etTypeUse
+    )
+
+    private val annotationTargetMaps: Map<JvmTarget, Map<KotlinTarget, IrEnumEntry>> =
         mapOf(
-            JvmTarget.JVM_1_6 to mutableMapOf(
-                KotlinTarget.CLASS to etType,
-                KotlinTarget.ANNOTATION_CLASS to etAnnotationType,
-                KotlinTarget.CONSTRUCTOR to etConstructor,
-                KotlinTarget.LOCAL_VARIABLE to etLocalVariable,
-                KotlinTarget.FUNCTION to etMethod,
-                KotlinTarget.PROPERTY_GETTER to etMethod,
-                KotlinTarget.PROPERTY_SETTER to etMethod,
-                KotlinTarget.FIELD to etField,
-                KotlinTarget.VALUE_PARAMETER to etParameter
-            ),
-            // additional values for jvm8
-            JvmTarget.JVM_1_8 to mutableMapOf(
-                KotlinTarget.TYPE_PARAMETER to etTypeParameter,
-                KotlinTarget.TYPE to etTypeUse
-            ),
-            JvmTarget.JVM_9 to mutableMapOf(),
-            JvmTarget.JVM_10 to mutableMapOf(),
-            JvmTarget.JVM_11 to mutableMapOf(),
-            JvmTarget.JVM_12 to mutableMapOf()
+            JvmTarget.JVM_1_6 to jvm6TargetMap,
+            JvmTarget.JVM_1_8 to jvm8TargetMap,
+            JvmTarget.JVM_9 to jvm8TargetMap,
+            JvmTarget.JVM_10 to jvm8TargetMap,
+            JvmTarget.JVM_11 to jvm8TargetMap,
+            JvmTarget.JVM_12 to jvm8TargetMap,
+            JvmTarget.JVM_13 to jvm8TargetMap
         )
-
-    init {
-        annotationTargetMaps[JvmTarget.JVM_1_8]!!.putAll(annotationTargetMaps[JvmTarget.JVM_1_6]!!.toList())
-        annotationTargetMaps[JvmTarget.JVM_9]!!.putAll(annotationTargetMaps[JvmTarget.JVM_1_8]!!.toList())
-        annotationTargetMaps[JvmTarget.JVM_10]!!.putAll(annotationTargetMaps[JvmTarget.JVM_9]!!.toList())
-        annotationTargetMaps[JvmTarget.JVM_11]!!.putAll(annotationTargetMaps[JvmTarget.JVM_10]!!.toList())
-        annotationTargetMaps[JvmTarget.JVM_12]!!.putAll(annotationTargetMaps[JvmTarget.JVM_11]!!.toList())
-    }
-
 
     private fun generateTargetAnnotation(irClass: IrClass) {
         if (irClass.hasAnnotation(FqName("java.lang.annotation.Target"))) return
@@ -230,7 +225,7 @@ private class AdditionalClassAnnotationLowering(private val context: JvmBackendC
 
         irClass.annotations.add(
             IrConstructorCallImpl.fromSymbolOwner(
-                UNDEFINED_OFFSET, UNDEFINED_OFFSET, targetConstructor.returnType, targetConstructor.symbol
+                UNDEFINED_OFFSET, UNDEFINED_OFFSET, targetConstructor.returnType, targetConstructor.symbol, 0
             ).apply {
                 putValueArgument(0, vararg)
             }

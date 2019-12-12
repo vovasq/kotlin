@@ -18,7 +18,7 @@ open class KotlinLibraryLayoutForWriter(
 open class BaseWriterImpl(
     val libraryLayout: KotlinLibraryLayoutForWriter,
     moduleName: String,
-    override val versions: KonanLibraryVersioning,
+    override val versions: KotlinLibraryVersioning,
     val nopack: Boolean = false
 ) : BaseWriter {
 
@@ -74,22 +74,23 @@ open class BaseWriterImpl(
 class KoltinLibraryWriterImpl(
     libDir: File,
     moduleName: String,
-    versions: KonanLibraryVersioning,
+    versions: KotlinLibraryVersioning,
     nopack: Boolean = false,
 
     val layout: KotlinLibraryLayoutForWriter = KotlinLibraryLayoutForWriter(libDir),
 
     base: BaseWriter = BaseWriterImpl(layout, moduleName, versions, nopack),
     metadata: MetadataWriter = MetadataWriterImpl(layout),
-    ir: IrWriter = IrWriterImpl(layout)
+    ir: IrWriter = IrMonoliticWriterImpl(layout)
+//    ir: IrWriter = IrPerFileWriterImpl(layout)
 
 ) : BaseWriter by base, MetadataWriter by metadata, IrWriter by ir, KotlinLibraryWriter
 
 fun buildKoltinLibrary(
     linkDependencies: List<KotlinLibrary>,
     metadata: SerializedMetadata,
-    ir: SerializedIr,
-    versions: KonanLibraryVersioning,
+    ir: SerializedIrModule,
+    versions: KotlinLibraryVersioning,
     output: String,
     moduleName: String,
     nopack: Boolean,

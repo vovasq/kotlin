@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.idea.injection
 
 import com.intellij.codeInsight.AnnotationUtil
+import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.lang.injection.MultiHostInjector
 import com.intellij.lang.injection.MultiHostRegistrar
 import com.intellij.openapi.application.ApplicationManager
@@ -25,7 +26,6 @@ import com.intellij.psi.util.CachedValuesManager
 import com.intellij.psi.util.PsiTreeUtil
 import org.intellij.plugins.intelliLang.Configuration
 import org.intellij.plugins.intelliLang.inject.InjectorUtils
-import org.intellij.plugins.intelliLang.inject.LanguageInjectionSupport
 import org.intellij.plugins.intelliLang.inject.TemporaryPlacesRegistry
 import org.intellij.plugins.intelliLang.inject.config.BaseInjection
 import org.intellij.plugins.intelliLang.inject.config.InjectionPlace
@@ -33,7 +33,7 @@ import org.intellij.plugins.intelliLang.inject.java.JavaLanguageInjectionSupport
 import org.intellij.plugins.intelliLang.util.AnnotationUtilEx
 import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.descriptors.annotations.Annotated
-import org.jetbrains.kotlin.idea.caches.resolve.allowResolveInWriteAction
+import org.jetbrains.kotlin.idea.caches.resolve.allowResolveInDispatchThread
 import org.jetbrains.kotlin.idea.caches.resolve.analyze
 import org.jetbrains.kotlin.idea.core.util.runInReadActionWithWriteActionPriority
 import org.jetbrains.kotlin.idea.patterns.KotlinFunctionPattern
@@ -94,7 +94,7 @@ class KotlinLanguageInjector(
                 kotlinCachedInjection.baseInjection
             else -> {
                 fun computeAndCache(): BaseInjection {
-                    val computedInjection = computeBaseInjection(ktHost, support, registrar) ?: ABSENT_KOTLIN_INJECTION
+                    val computedInjection = computeBaseInjection(ktHost, support) ?: ABSENT_KOTLIN_INJECTION
                     ktHost.cachedInjectionWithModification = KotlinCachedInjection(modificationCount, computedInjection)
                     return computedInjection
                 }
@@ -127,7 +127,7 @@ class KotlinLanguageInjector(
             InjectorUtils.putInjectedFileUserData(
                 ktHost,
                 language,
-                com.intellij.psi.impl.source.tree.injected.InjectedLanguageUtil.FRANKENSTEIN_INJECTION,
+                InjectedLanguageManager.FRANKENSTEIN_INJECTION,
                 if (parts.isUnparsable) java.lang.Boolean.TRUE else null
             )
         } else {
@@ -138,14 +138,12 @@ class KotlinLanguageInjector(
     @Suppress("FoldInitializerAndIfToElvis")
     private fun computeBaseInjection(
         ktHost: KtStringTemplateExpression,
-        support: KotlinLanguageInjectionSupport,
-        registrar: MultiHostRegistrar
+        support: KotlinLanguageInjectionSupport
     ): BaseInjection? {
         val containingFile = ktHost.containingFile
 
         val tempInjectedLanguage = TemporaryPlacesRegistry.getInstance(project).getLanguageFor(ktHost, containingFile)
         if (tempInjectedLanguage != null) {
-            InjectorUtils.putInjectedFileUserData(registrar, LanguageInjectionSupport.TEMPORARY_INJECTED_LANGUAGE, tempInjectedLanguage)
             return BaseInjection(support.id).apply {
                 injectedLanguageId = tempInjectedLanguage.id
                 prefix = tempInjectedLanguage.prefix
@@ -259,11 +257,11 @@ class KotlinLanguageInjector(
         }.firstOrNull()
     }
 
-    private fun injectWithCall(host: KtElement): InjectionInfo? {
-        val ktHost: KtElement = host
-        val argument = ktHost.parent as? KtValueArgument ?: return null
+    private tailrec fun injectWithCall(host: KtElement): InjectionInfo? {
+        val argument = getArgument(host) ?: return null
+        val callExpression = PsiTreeUtil.getParentOfType(argument, KtCallElement::class.java) ?: return null
 
-        val callExpression = PsiTreeUtil.getParentOfType(ktHost, KtCallElement::class.java) ?: return null
+        if (getCallableShortName(callExpression) == "arrayOf") return injectWithCall(callExpression)
         val callee = getNameReference(callExpression.calleeExpression) ?: return null
 
         if (isAnalyzeOff()) return null
@@ -271,7 +269,7 @@ class KotlinLanguageInjector(
         for (reference in callee.references) {
             ProgressManager.checkCanceled()
 
-            val resolvedTo = allowResolveInWriteAction { reference.resolve() }
+            val resolvedTo = allowResolveInDispatchThread { reference.resolve() }
             if (resolvedTo is PsiMethod) {
                 val injectionForJavaMethod = injectionForJavaMethod(argument, resolvedTo)
                 if (injectionForJavaMethod != null) {
@@ -294,13 +292,24 @@ class KotlinLanguageInjector(
         return callee as? KtNameReferenceExpression
     }
 
-    private fun injectInAnnotationCall(host: KtElement): InjectionInfo? {
-        val argument = host.parent as? KtValueArgument ?: return null
+    private fun getArgument(host: KtElement): KtValueArgument? = when (val parent = host.parent) {
+        is KtValueArgument -> parent
+        is KtCollectionLiteralExpression, is KtCallElement -> parent.parent as? KtValueArgument
+        else -> null
+    }
+
+    private tailrec fun injectInAnnotationCall(host: KtElement): InjectionInfo? {
+        val argument = getArgument(host) ?: return null
         val annotationEntry = argument.parent.parent as? KtCallElement ?: return null
-        if (!fastCheckInjectionsExists(annotationEntry)) return null
+
+        val callableShortName = getCallableShortName(annotationEntry) ?: return null
+        if (callableShortName == "arrayOf") return injectInAnnotationCall(annotationEntry)
+
+        if (!fastCheckInjectionsExists(callableShortName)) return null
+
         val calleeExpression = annotationEntry.calleeExpression ?: return null
         val callee = getNameReference(calleeExpression)?.mainReference?.let { reference ->
-            allowResolveInWriteAction { reference.resolve() }
+            allowResolveInDispatchThread { reference.resolve() }
         }
         when (callee) {
             is PsiClass -> {
@@ -348,7 +357,7 @@ class KotlinLanguageInjector(
         // Found psi element after resolve can be obtained from compiled declaration but annotations parameters are lost there.
         // Search for original descriptor from reference.
         val ktReference = reference as? KtReference ?: return null
-        val functionDescriptor = allowResolveInWriteAction {
+        val functionDescriptor = allowResolveInDispatchThread {
             val bindingContext = ktReference.element.analyze(BodyResolveMode.PARTIAL_WITH_DIAGNOSTICS)
             ktReference.resolveToDescriptors(bindingContext).singleOrNull() as? FunctionDescriptor
         } ?: return null
@@ -402,10 +411,11 @@ class KotlinLanguageInjector(
 
     private val injectableTargetClassShortNames = CachedValuesManager.getManager(project).createCachedValue(::createCachedValue, false)
 
-    private fun fastCheckInjectionsExists(annotationEntry: KtCallElement): Boolean {
-        val referencedName = getNameReference(annotationEntry.calleeExpression)?.getReferencedName() ?: return false
-        val annotationShortName = annotationEntry.containingKtFile.aliasImportMap()[referencedName].singleOrNull() ?: referencedName
-        return annotationShortName in injectableTargetClassShortNames.value
+    private fun fastCheckInjectionsExists(annotationShortName: String) = annotationShortName in injectableTargetClassShortNames.value
+
+    private fun getCallableShortName(annotationEntry: KtCallElement): String? {
+        val referencedName = getNameReference(annotationEntry.calleeExpression)?.getReferencedName() ?: return null
+        return annotationEntry.containingKtFile.aliasImportMap()[referencedName].singleOrNull() ?: referencedName
     }
 
     private fun retrieveJavaPlaceTargetClassesFQNs(place: InjectionPlace): Collection<String> {

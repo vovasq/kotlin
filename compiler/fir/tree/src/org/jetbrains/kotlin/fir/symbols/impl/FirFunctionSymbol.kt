@@ -6,18 +6,16 @@
 package org.jetbrains.kotlin.fir.symbols.impl
 
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.declarations.impl.FirErrorFunction
+import org.jetbrains.kotlin.fir.symbols.AccessorSymbol
 import org.jetbrains.kotlin.fir.symbols.CallableId
-import org.jetbrains.kotlin.fir.symbols.ConeFunctionSymbol
-import org.jetbrains.kotlin.fir.symbols.ConePropertySymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 
 sealed class FirFunctionSymbol<D : FirFunction<D>>(
     override val callableId: CallableId
-) : ConeFunctionSymbol, FirCallableSymbol<D>() {
-    override val parameters: List<ConeKotlinType>
+) : FirCallableSymbol<D>() {
+    open val parameters: List<ConeKotlinType>
         get() = emptyList()
 }
 
@@ -27,17 +25,18 @@ open class FirNamedFunctionSymbol(
     callableId: CallableId,
     val isFakeOverride: Boolean = false,
     // Actual for fake override only
-    val overriddenSymbol: FirNamedFunctionSymbol? = null
-) : FirFunctionSymbol<FirNamedFunction>(callableId)
+    override val overriddenSymbol: FirNamedFunctionSymbol? = null
+) : FirFunctionSymbol<FirSimpleFunction>(callableId)
 
 class FirConstructorSymbol(
-    callableId: CallableId
+    callableId: CallableId,
+    override val overriddenSymbol: FirConstructorSymbol? = null
 ) : FirFunctionSymbol<FirConstructor>(callableId)
 
 class FirAccessorSymbol(
     callableId: CallableId,
-    val accessorId: CallableId
-) : ConePropertySymbol, FirFunctionSymbol<FirNamedFunction>(callableId)
+    override val accessorId: CallableId
+) : FirFunctionSymbol<FirSimpleFunction>(callableId), AccessorSymbol
 
 // ------------------------ unnamed ------------------------
 

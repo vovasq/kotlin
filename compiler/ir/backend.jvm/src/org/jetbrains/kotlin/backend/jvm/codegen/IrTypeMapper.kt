@@ -1,19 +1,21 @@
 /*
- * Copyright 2010-2019 JetBrains s.r.o. Use of this source code is governed by the Apache 2.0 license
- * that can be found in the license/LICENSE.txt file.
+ * Copyright 2010-2019 JetBrains s.r.o. and Kotlin Programming Language contributors.
+ * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
  */
 
 package org.jetbrains.kotlin.backend.jvm.codegen
 
 import org.jetbrains.kotlin.backend.jvm.JvmBackendContext
 import org.jetbrains.kotlin.builtins.functions.FunctionClassDescriptor
-import org.jetbrains.kotlin.builtins.isSuspendFunctionType
-import org.jetbrains.kotlin.builtins.transformSuspendFunctionToRuntimeFunctionType
 import org.jetbrains.kotlin.codegen.AsmUtil
 import org.jetbrains.kotlin.codegen.JvmCodegenUtil
 import org.jetbrains.kotlin.codegen.signature.AsmTypeFactory
 import org.jetbrains.kotlin.codegen.signature.JvmSignatureWriter
 import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
+import org.jetbrains.kotlin.codegen.state.KotlinTypeMapperBase
+import org.jetbrains.kotlin.descriptors.ClassDescriptor
+import org.jetbrains.kotlin.descriptors.ClassifierDescriptor
+import org.jetbrains.kotlin.descriptors.TypeParameterDescriptor
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrPackageFragment
 import org.jetbrains.kotlin.ir.declarations.IrTypeParameter
@@ -22,6 +24,7 @@ import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.types.impl.originalKotlinType
 import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
+import org.jetbrains.kotlin.ir.util.isSuspendFunction
 import org.jetbrains.kotlin.load.kotlin.TypeMappingMode
 import org.jetbrains.kotlin.load.kotlin.computeExpandedTypeForInlineClass
 import org.jetbrains.kotlin.load.kotlin.mapBuiltInType
@@ -30,12 +33,45 @@ import org.jetbrains.kotlin.resolve.jvm.AsmTypes
 import org.jetbrains.kotlin.types.Variance
 import org.jetbrains.org.objectweb.asm.Type
 
-class IrTypeMapper(private val context: JvmBackendContext) {
-    private val typeSystem = IrTypeCheckerContext(context.irBuiltIns)
+class IrTypeMapper(private val context: JvmBackendContext) : KotlinTypeMapperBase() {
+    internal val typeSystem = IrTypeCheckerContext(context.irBuiltIns)
 
-    fun classInternalName(irClass: IrClass): String =
-        context.getLocalClassInfo(irClass)?.internalName
-            ?: JvmCodegenUtil.sanitizeNameIfNeeded(computeInternalName(irClass), context.state.languageVersionSettings)
+    private val IrTypeArgument.adjustedType
+        get() = (this as? IrTypeProjection)?.type ?: context.irBuiltIns.anyNType
+
+    override fun mapClass(classifier: ClassifierDescriptor): Type =
+        when (classifier) {
+            is ClassDescriptor ->
+                mapClass(context.referenceClass(classifier).owner)
+            is TypeParameterDescriptor ->
+                mapType(context.referenceTypeParameter(classifier).defaultType)
+            else ->
+                error("Unknown descriptor: $classifier")
+        }
+
+    fun classInternalName(irClass: IrClass): String {
+        context.getLocalClassType(irClass)?.internalName?.let { return it }
+
+        context.classNameOverride[irClass]?.let { return it.internalName }
+
+        val className = SpecialNames.safeIdentifier(irClass.name).identifier
+        val internalName = when (val parent = irClass.parent) {
+            is IrPackageFragment -> {
+                val fqName = parent.fqName
+                val prefix = if (fqName.isRoot) "" else fqName.asString().replace('.', '/') + "/"
+                prefix + className
+            }
+            is IrClass -> {
+                classInternalName(parent) + "$" + className
+            }
+            else -> error(
+                "Local class should have its name computed in InventNamesForLocalClasses: ${irClass.fqNameWhenAvailable}\n" +
+                        "Ensure that any lowering that transforms elements with local class info (classes, function references) " +
+                        "invokes `copyAttributes` on the transformed element."
+            )
+        }
+        return JvmCodegenUtil.sanitizeNameIfNeeded(internalName, context.state.languageVersionSettings)
+    }
 
     fun writeFormalTypeParameters(irParameters: List<IrTypeParameter>, sw: JvmSignatureWriter) {
         if (sw.skipGenericSignature()) return
@@ -67,11 +103,13 @@ class IrTypeMapper(private val context: JvmBackendContext) {
             error("Unexpected type: $type (original Kotlin type=$kotlinType of ${kotlinType?.let { it::class }})")
         }
 
-        // TODO: rewrite this part to produce the correct Type without the fake descriptor
-        if (type.toKotlinType().isSuspendFunctionType) {
-            return context.state.typeMapper.mapType(
-                transformSuspendFunctionToRuntimeFunctionType(type.toKotlinType(), isReleaseCoroutines = true), sw, mode
-            )
+        if (type.isSuspendFunction()) {
+            val arguments =
+                type.arguments.dropLast(1).map { it.adjustedType } +
+                        context.ir.symbols.continuationClass.typeWith(type.arguments.last().adjustedType) +
+                        context.irBuiltIns.anyNType
+            val runtimeFunctionType = context.referenceClass(context.builtIns.getFunction(arguments.size - 1)).typeWith(arguments)
+            return mapType(runtimeFunctionType, mode, sw)
         }
 
         with(typeSystem) {
@@ -99,7 +137,7 @@ class IrTypeMapper(private val context: JvmBackendContext) {
                     arrayElementType = AsmTypes.OBJECT_TYPE
                     sw?.writeClass(arrayElementType)
                 } else {
-                    arrayElementType = mapType(memberType, mode.toGenericArgumentMode(variance), sw)
+                    arrayElementType = mapType(memberType, mode.toGenericArgumentMode(variance, ofArray = true), sw)
                 }
                 sw?.writeArrayEnd()
 
@@ -130,25 +168,6 @@ class IrTypeMapper(private val context: JvmBackendContext) {
             }
 
             else -> throw UnsupportedOperationException("Unknown type $type")
-        }
-    }
-
-    private fun computeInternalName(klass: IrClass): String {
-        val className = SpecialNames.safeIdentifier(klass.name).identifier
-        return when (val parent = klass.parent) {
-            is IrPackageFragment -> {
-                val fqName = parent.fqName
-                val prefix = if (fqName.isRoot) "" else fqName.asString().replace('.', '/') + "/"
-                prefix + className
-            }
-            is IrClass -> {
-                computeInternalName(parent) + "$" + className
-            }
-            else -> error(
-                "Local class should have its name computed in InventNamesForLocalClasses: ${klass.fqNameWhenAvailable}\n" +
-                        "Ensure that any lowering that transforms elements with local class info (classes, function references, " +
-                        "IrTypeOperatorCall for SAM conversions) invokes `copyAttributes` on the transformed element."
-            )
         }
     }
 

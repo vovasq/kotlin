@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.idea.codeInsight.moveUpDown
 
+import com.intellij.application.options.CodeStyle
 import com.intellij.codeInsight.editorActions.moveLeftRight.MoveElementLeftAction
 import com.intellij.codeInsight.editorActions.moveLeftRight.MoveElementRightAction
 import com.intellij.codeInsight.editorActions.moveUpDown.MoveStatementDownAction
@@ -15,14 +16,13 @@ import com.intellij.openapi.application.runWriteAction
 import com.intellij.openapi.editor.actionSystem.EditorAction
 import com.intellij.openapi.extensions.Extensions
 import com.intellij.openapi.util.io.FileUtil
-import com.intellij.testFramework.LightCodeInsightTestCase
-import com.intellij.testFramework.LightPlatformCodeInsightTestCase
 import junit.framework.ComparisonFailure
 import junit.framework.TestCase
 import org.jetbrains.kotlin.formatter.FormatSettingsUtil
 import org.jetbrains.kotlin.idea.codeInsight.upDownMover.KotlinDeclarationMover
 import org.jetbrains.kotlin.idea.codeInsight.upDownMover.KotlinExpressionMover
-import org.jetbrains.kotlin.idea.core.script.isScriptDependenciesUpdaterDisabled
+import org.jetbrains.kotlin.idea.core.script.isScriptChangesNotifierDisabled
+import org.jetbrains.kotlin.idea.test.KotlinLightCodeInsightTestCase
 import org.jetbrains.kotlin.test.InTextDirectivesUtils
 import org.jetbrains.kotlin.test.KotlinTestUtils
 import java.io.File
@@ -41,7 +41,7 @@ abstract class AbstractMoveStatementTest : AbstractCodeMoverTest() {
             val movers = Extensions.getExtensions(StatementUpDownMover.STATEMENT_UP_DOWN_MOVER_EP)
             val info = StatementUpDownMover.MoveInfo()
             val actualMover = movers.firstOrNull {
-                it.checkAvailable(LightPlatformCodeInsightTestCase.getEditor(), LightPlatformCodeInsightTestCase.getFile(), info, direction == "down")
+                it.checkAvailable(editor, file, info, direction == "down")
             } ?: error("No mover found")
 
             assertEquals("Unmatched movers", defaultMoverClass.name, actualMover::class.java.name)
@@ -56,14 +56,15 @@ abstract class AbstractMoveLeftRightTest : AbstractCodeMoverTest() {
     }
 }
 
-abstract class AbstractCodeMoverTest : LightCodeInsightTestCase() {
+@Suppress("DEPRECATION")
+abstract class AbstractCodeMoverTest : KotlinLightCodeInsightTestCase() {
     override fun setUp() {
         super.setUp()
-        ApplicationManager.getApplication().isScriptDependenciesUpdaterDisabled = true
+        ApplicationManager.getApplication().isScriptChangesNotifierDisabled = true
     }
 
     override fun tearDown() {
-        ApplicationManager.getApplication().isScriptDependenciesUpdaterDisabled = false
+        ApplicationManager.getApplication().isScriptChangesNotifierDisabled = false
         super.tearDown()
     }
 
@@ -91,13 +92,15 @@ abstract class AbstractCodeMoverTest : LightCodeInsightTestCase() {
     }
 
     private fun invokeAndCheck(fileText: String, path: String, action: EditorAction, isApplicableExpected: Boolean) {
-        val codeStyleSettings = FormatSettingsUtil.getSettings()
+        val editor = editor_
+        val project = editor.project!!
+
+        val codeStyleSettings = CodeStyle.getSettings(project)
         val configurator = FormatSettingsUtil.createConfigurator(fileText, codeStyleSettings)
         configurator.configureSettings()
 
         try {
-            val editor = LightPlatformCodeInsightTestCase.getEditor()
-            val dataContext = LightPlatformCodeInsightTestCase.getCurrentEditorDataContext()
+            val dataContext = currentEditorDataContext_
 
             val before = editor.document.text
             runWriteAction { action.actionPerformed(editor, dataContext) }

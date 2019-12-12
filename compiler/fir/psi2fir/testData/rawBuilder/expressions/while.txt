@@ -1,12 +1,12 @@
 FILE: while.kt
-    public? final? fun foo(limit: Int): kotlin/Unit {
-        lvar k: <implicit> = Int(0)
+    public? final? fun foo(limit: Int): R|kotlin/Unit| {
+        lvar k: <implicit> = IntegerLiteral(0)
         some@while(<(k#, limit#)) {
             lval <unary>: <implicit> = k#
             k# = R|<local>/<unary>|.inc#()
             R|<local>/<unary>|
             println#(k#)
-            while(==(k#, Int(13))) {
+            while(==(k#, IntegerLiteral(13))) {
                 lval <unary>: <implicit> = k#
                 k# = R|<local>/<unary>|.inc#()
                 R|<local>/<unary>|
@@ -14,15 +14,11 @@ FILE: while.kt
                     <(k#, limit#) ->  {
                         break@@@[<(k#, limit#)]
                     }
-                    else ->  {
-                    }
                 }
 
                 when () {
                     >(k#, limit#) ->  {
-                        continue@@@[==(k#, Int(13))]
-                    }
-                    else ->  {
+                        continue@@@[==(k#, IntegerLiteral(13))]
                     }
                 }
 
@@ -31,7 +27,7 @@ FILE: while.kt
         }
 
     }
-    public? final? fun bar(limit: Int): kotlin/Unit {
+    public? final? fun bar(limit: Int): R|kotlin/Unit| {
         lvar k: <implicit> = limit#
         do {
             lval <unary>: <implicit> = k#
@@ -39,5 +35,5 @@ FILE: while.kt
             R|<local>/<unary>|
             println#(k#)
         }
-        while(>=(k#, Int(0)))
+        while(>=(k#, IntegerLiteral(0)))
     }

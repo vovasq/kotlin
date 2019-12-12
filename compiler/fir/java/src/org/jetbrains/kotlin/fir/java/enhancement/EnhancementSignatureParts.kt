@@ -6,24 +6,26 @@
 package org.jetbrains.kotlin.fir.java.enhancement
 
 import org.jetbrains.kotlin.builtins.jvm.JavaToKotlinClassMap
+import org.jetbrains.kotlin.fir.FirAnnotationContainer
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
-import org.jetbrains.kotlin.fir.expressions.FirAnnotationContainer
-import org.jetbrains.kotlin.fir.expressions.resolvedFqName
+import org.jetbrains.kotlin.fir.expressions.classId
 import org.jetbrains.kotlin.fir.java.JavaTypeParameterStack
 import org.jetbrains.kotlin.fir.java.toConeKotlinTypeWithNullability
 import org.jetbrains.kotlin.fir.java.toFirJavaTypeRef
 import org.jetbrains.kotlin.fir.java.toNotNullConeKotlinType
-import org.jetbrains.kotlin.fir.java.types.FirJavaTypeRef
 import org.jetbrains.kotlin.fir.symbols.ConeClassLikeLookupTag
 import org.jetbrains.kotlin.fir.types.*
+import org.jetbrains.kotlin.fir.types.jvm.FirJavaTypeRef
 import org.jetbrains.kotlin.load.java.AnnotationTypeQualifierResolver
 import org.jetbrains.kotlin.load.java.MUTABLE_ANNOTATIONS
 import org.jetbrains.kotlin.load.java.READ_ONLY_ANNOTATIONS
+import org.jetbrains.kotlin.load.java.structure.JavaClassifierType
+import org.jetbrains.kotlin.load.java.structure.JavaTypeParameter
 import org.jetbrains.kotlin.load.java.structure.JavaWildcardType
 import org.jetbrains.kotlin.load.java.typeEnhancement.*
-import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqNameUnsafe
 import org.jetbrains.kotlin.utils.Jsr305State
 import org.jetbrains.kotlin.utils.addToStdlib.safeAs
@@ -133,7 +135,7 @@ internal class EnhancementSignatureParts(
                 mapping.isMutable(upper.toFqNameUnsafe()) -> MutabilityQualifier.MUTABLE
                 else -> null
             },
-            isNotNullTypeParameter = false //TODO: unwrap() is NotNullTypeParameter
+            isNotNullTypeParameter = lower is ConeDefinitelyNotNullType
         )
     }
 
@@ -179,9 +181,9 @@ internal class EnhancementSignatureParts(
             else
                 this?.annotations.orEmpty()
 
-        fun <T : Any> List<FqName>.ifPresent(qualifier: T) =
-            if (any { fqName ->
-                    composedAnnotation.any { it.resolvedFqName == fqName }
+        fun <T : Any> List<ClassId>.ifPresent(qualifier: T) =
+            if (any { classId ->
+                    composedAnnotation.any { it.classId == classId }
                 }
             ) qualifier else null
 
@@ -205,17 +207,20 @@ internal class EnhancementSignatureParts(
         return JavaTypeQualifiers(
             nullabilityInfo?.qualifier,
             uniqueNotNull(
-                READ_ONLY_ANNOTATIONS.ifPresent(
+                READ_ONLY_ANNOTATION_IDS.ifPresent(
                     MutabilityQualifier.READ_ONLY
                 ),
-                MUTABLE_ANNOTATIONS.ifPresent(
+                MUTABLE_ANNOTATION_IDS.ifPresent(
                     MutabilityQualifier.MUTABLE
                 )
             ),
-            isNotNullTypeParameter = nullabilityInfo?.qualifier == NullabilityQualifier.NOT_NULL && true, /* TODO: isTypeParameter()*/
+            isNotNullTypeParameter = nullabilityInfo?.qualifier == NullabilityQualifier.NOT_NULL && this.isTypeParameterBasedType(),
             isNullabilityQualifierForWarning = nullabilityInfo?.isForWarningOnly == true
         )
     }
+
+    private fun FirTypeRef?.isTypeParameterBasedType() =
+        ((this as? FirJavaTypeRef)?.type as? JavaClassifierType)?.classifier is JavaTypeParameter
 
     private fun FirTypeRef?.computeQualifiersForOverride(
         session: FirSession,
@@ -297,5 +302,10 @@ internal class EnhancementSignatureParts(
         val wereChanges: Boolean,
         val containsFunctionN: Boolean
     )
+
+    companion object {
+        private val READ_ONLY_ANNOTATION_IDS = READ_ONLY_ANNOTATIONS.map { ClassId.topLevel(it) }
+        private val MUTABLE_ANNOTATION_IDS = MUTABLE_ANNOTATIONS.map { ClassId.topLevel(it) }
+    }
 }
 

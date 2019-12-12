@@ -1,7 +1,7 @@
 FILE: lambda.kt
-    public? final? data class Tuple : kotlin/Any {
+    public? final? data class Tuple : R|kotlin/Any| {
         public? constructor(x: Int, y: Int): R|Tuple| {
-            super<kotlin/Any>()
+            super<R|kotlin/Any|>()
         }
 
         public? final? val x: Int = R|<local>/x|
@@ -11,19 +11,19 @@ FILE: lambda.kt
             public? get(): Int
 
         public final fun component1(): <implicit> {
-            ^component1 R|/Tuple.x|
+            ^component1 this@R|/Tuple|.R|/Tuple.x|
         }
 
         public final fun component2(): <implicit> {
-            ^component2 R|/Tuple.y|
+            ^component2 this@R|/Tuple|.R|/Tuple.y|
         }
 
-        public final fun copy(x: Int = R|/Tuple.x|, y: Int = R|/Tuple.y|): R|Tuple| {
+        public final fun copy(x: Int = this@R|/Tuple|.R|/Tuple.x|, y: Int = this@R|/Tuple|.R|/Tuple.y|): R|Tuple| {
         }
 
     }
     public? final? inline fun use(f: ( (Tuple) -> Int )): <implicit> {
-        ^use f#(Tuple#(Int(1), Int(2)))
+        ^use f#(Tuple#(IntegerLiteral(1), IntegerLiteral(2)))
     }
     public? final? fun foo(): Int {
         lval l1: <implicit> = fun <implicit>.<anonymous>(t: Tuple): <implicit> {
@@ -40,10 +40,8 @@ FILE: lambda.kt
         )
         ^foo use#(<L> = use@fun <implicit>.<anonymous>(): <implicit> {
             when () {
-                ==(it#.x#, Int(0)) ->  {
-                    ^foo Int(0)
-                }
-                else ->  {
+                ==(it#.x#, IntegerLiteral(0)) ->  {
+                    ^foo IntegerLiteral(0)
                 }
             }
 
@@ -54,10 +52,8 @@ FILE: lambda.kt
     public? final? fun bar(): Int {
         ^bar use#(<L> = lambda@fun <implicit>.<anonymous>(): <implicit> {
             when () {
-                ==(it#.x#, Int(0)) ->  {
-                    ^bar Int(0)
-                }
-                else ->  {
+                ==(it#.x#, IntegerLiteral(0)) ->  {
+                    ^bar IntegerLiteral(0)
                 }
             }
 
@@ -65,14 +61,13 @@ FILE: lambda.kt
         }
         )
     }
-    public? final? fun test(list: List<Int>): kotlin/Unit {
+    public? final? fun test(list: List<Int>): R|kotlin/Unit| {
         lval map: <implicit> = mutableMapOf#<Int, String>()
         list#.forEach#(<L> = forEach@fun <implicit>.<anonymous>(): <implicit> {
-            lval <complex-set>: <implicit> = map#.getOrPut#(it#, getOrPut@fun <implicit>.<anonymous>(): <implicit> {
+            +=(map#.getOrPut#(it#, getOrPut@fun <implicit>.<anonymous>(): <implicit> {
                 mutableListOf#()
             }
-            )
-            <complex-set># += String()
+            ), String())
         }
         )
     }
@@ -82,7 +77,7 @@ FILE: lambda.kt
 
         public? get(): <implicit>
     public? final? val another: <implicit> = fun <implicit>.<anonymous>(): <implicit> {
-        Int(42)
+        IntegerLiteral(42)
     }
 
         public? get(): <implicit>

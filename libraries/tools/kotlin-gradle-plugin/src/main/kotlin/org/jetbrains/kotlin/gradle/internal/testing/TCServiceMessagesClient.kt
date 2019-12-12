@@ -25,7 +25,8 @@ data class TCServiceMessagesClientSettings(
     val treatFailedTestOutputAsStacktrace: Boolean = false,
     val stackTraceParser: (String) -> ParsedStackTrace? = { null },
     val ignoreOutOfRootNodes: Boolean = false,
-    val ignoreLineEndingAfterMessage: Boolean = true
+    val ignoreLineEndingAfterMessage: Boolean = true,
+    val escapeTCMessagesInLog: Boolean = false
 )
 
 internal open class TCServiceMessagesClient(
@@ -51,7 +52,17 @@ internal open class TCServiceMessagesClient(
     }
 
     override fun serviceMessage(message: ServiceMessage) {
-        log.kotlinDebug { "TCSM: $message" }
+
+        // If a user uses TeamCity, this log may be treated by TC as an actual service message.
+        // So, escape logged messages if the corresponding setting is specified.
+        log.kotlinDebug {
+            val messageString = if (settings.escapeTCMessagesInLog) {
+                message.toString().replaceFirst("^##teamcity\\[".toRegex(), "##TC[")
+            } else {
+                message.toString()
+            }
+            "TCSM: $messageString"
+        }
 
         when (message) {
             is TestSuiteStarted -> open(message.ts, SuiteNode(requireLeafGroup(), getSuiteName(message)))
@@ -99,9 +110,12 @@ internal open class TCServiceMessagesClient(
         afterMessage = false
     }
 
-    protected open fun printNonTestOutput(actualText: String) {
-        print(actualText)
+    protected open fun printNonTestOutput(text: String) {
+        print(text)
     }
+
+    protected open fun processStackTrace(stackTrace: String): String =
+        stackTrace
 
     protected open val testNameSuffix: String?
         get() = settings.testNameSuffix
@@ -147,16 +161,17 @@ internal open class TCServiceMessagesClient(
                 append(stackTraceOutput)
                 stackTraceOutput.setLength(0)
             }
-        }
+        }.let { processStackTrace(it) }
 
         val parsedStackTrace = settings.stackTraceParser(stacktrace)
 
+        val failMessage = parsedStackTrace?.message ?: message.failureMessage
         results.failure(
             descriptor.id,
             KotlinTestFailure(
-                (parsedStackTrace?.message ?: message.failureMessage)?.let { extractExceptionClassName(it) }
+                failMessage?.let { extractExceptionClassName(it) }
                     ?: "Unknown",
-                message.failureMessage,
+                failMessage,
                 stacktrace,
                 patchStackTrace(this, parsedStackTrace?.stackTrace),
                 message.expected,
@@ -504,7 +519,7 @@ internal open class TCServiceMessagesClient(
                     if (currentLeaf is TestNode) {
                         currentTest = currentLeaf
                         output.append(currentLeaf.allOutput)
-                        currentLeaf.failure(TestFailed(currentLeaf.cleanName, null))
+                        currentLeaf.failure(TestFailed(currentLeaf.cleanName, null as Throwable?))
                     }
 
                     close(ts, currentLeaf.localId)

@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.resolve.calls.inference.components.KotlinConstraintS
 import org.jetbrains.kotlin.resolve.calls.inference.components.ResultTypeResolver
 import org.jetbrains.kotlin.resolve.calls.model.KotlinCallDiagnostic
 import org.jetbrains.kotlin.resolve.calls.model.OnlyInputTypesDiagnostic
+import org.jetbrains.kotlin.resolve.calls.model.ResolvedAtom
 import org.jetbrains.kotlin.types.IntersectionTypeConstructor
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.checker.NewKotlinTypeChecker
@@ -164,6 +165,9 @@ class NewConstraintSystemImpl(
         }
 
     override fun addOtherSystem(otherSystem: ConstraintStorage) {
+        otherSystem.allTypeVariables.forEach {
+            transactionRegisterVariable(it.value)
+        }
         storage.allTypeVariables.putAll(otherSystem.allTypeVariables)
         for ((variable, constraints) in otherSystem.notFixedTypeVariables) {
             notFixedTypeVariables[variable] = MutableVariableWithConstraints(constraints.typeVariable, constraints.constraints)
@@ -179,13 +183,16 @@ class NewConstraintSystemImpl(
     // ResultTypeResolver.Context, ConstraintSystemBuilder
     override fun isProperType(type: KotlinTypeMarker): Boolean {
         checkState(State.BUILDING, State.COMPLETION, State.TRANSACTION)
+        if (storage.allTypeVariables.isEmpty()) return true
         return !type.contains {
             val capturedType = it.asSimpleType()?.asCapturedType()
             // TODO: change NewCapturedType to markered one for FE-IR
             val typeToCheck = if (capturedType is CapturedTypeMarker && capturedType.captureStatus() == CaptureStatus.FROM_EXPRESSION)
-                capturedType.typeConstructorProjection().getType()
+                capturedType.typeConstructorProjection().takeUnless { projection -> projection.isStarProjection() }?.getType()
             else
                 it
+
+            if (typeToCheck == null) return@contains false
 
             storage.allTypeVariables.containsKey(typeToCheck.typeConstructor())
         }
@@ -246,10 +253,13 @@ class NewConstraintSystemImpl(
     }
 
     // KotlinConstraintSystemCompleter.Context
-    override fun fixVariable(variable: TypeVariableMarker, resultType: KotlinTypeMarker) {
+    override fun fixVariable(variable: TypeVariableMarker, resultType: KotlinTypeMarker, atom: ResolvedAtom?) {
         checkState(State.BUILDING, State.COMPLETION)
 
-        constraintInjector.addInitialEqualityConstraint(this, variable.defaultType(), resultType, FixVariableConstraintPosition(variable))
+        constraintInjector.addInitialEqualityConstraint(
+            this, variable.defaultType(), resultType, FixVariableConstraintPosition(variable, atom)
+        )
+
         val variableWithConstraints = notFixedTypeVariables.remove(variable.freshTypeConstructor())
         checkOnlyInputTypesAnnotation(variableWithConstraints, resultType)
 
@@ -270,11 +280,9 @@ class NewConstraintSystemImpl(
         if (variableWithConstraints == null || variableWithConstraints.typeVariable.safeAs<NewTypeVariable>()?.hasOnlyInputTypesAnnotation() != true ) return
         val projectedInputCallTypes = variableWithConstraints.projectedInputCallTypes
         val resultTypeIsInputType = projectedInputCallTypes.any { inputType ->
-            val constructor = inputType.constructor
-            if (constructor is IntersectionTypeConstructor)
-                constructor.supertypes.any { NewKotlinTypeChecker.Default.equalTypes(resultType, it) }
-            else
-                NewKotlinTypeChecker.Default.equalTypes(resultType, inputType)
+            NewKotlinTypeChecker.Default.equalTypes(resultType, inputType) ||
+                    inputType.constructor is IntersectionTypeConstructor
+                    && inputType.constructor.supertypes.any { NewKotlinTypeChecker.Default.equalTypes(resultType, it) }
         }
         if (!resultTypeIsInputType) {
             addError(OnlyInputTypesDiagnostic(variableWithConstraints.typeVariable as NewTypeVariable))
@@ -304,6 +312,11 @@ class NewConstraintSystemImpl(
     override fun buildCurrentSubstitutor(additionalBindings: Map<TypeConstructorMarker, StubTypeMarker>): TypeSubstitutorMarker {
         checkState(State.BUILDING, State.COMPLETION)
         return storage.buildCurrentSubstitutor(this, additionalBindings)
+    }
+
+    override fun buildNotFixedVariablesToStubTypesSubstitutor(): TypeSubstitutorMarker {
+        checkState(State.BUILDING, State.COMPLETION)
+        return storage.buildNotFixedVariablesToNonSubtypableTypesSubstitutor(this)
     }
 
     override fun bindingStubsForPostponedVariables(): Map<TypeVariableMarker, StubTypeMarker> {

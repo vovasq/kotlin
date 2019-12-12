@@ -7,7 +7,6 @@ package org.jetbrains.kotlin.backend.common.lower
 
 import org.jetbrains.kotlin.backend.common.BackendContext
 import org.jetbrains.kotlin.backend.common.FileLoweringPass
-import org.jetbrains.kotlin.backend.common.descriptors.WrappedSimpleFunctionDescriptor
 import org.jetbrains.kotlin.backend.common.ir.copyTo
 import org.jetbrains.kotlin.descriptors.ClassKind
 import org.jetbrains.kotlin.descriptors.Modality
@@ -16,9 +15,12 @@ import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrFunctionImpl
+import org.jetbrains.kotlin.ir.descriptors.WrappedSimpleFunctionDescriptor
 import org.jetbrains.kotlin.ir.expressions.impl.IrBlockBodyImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrBlockImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
+import org.jetbrains.kotlin.ir.types.classifierOrFail
+import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.isEffectivelyExternal
 import org.jetbrains.kotlin.ir.util.transformDeclarationsFlat
 import org.jetbrains.kotlin.ir.visitors.*
@@ -46,6 +48,12 @@ class PropertiesLowering(
     override fun visitClass(declaration: IrClass): IrStatement {
         declaration.transformChildrenVoid(this)
         declaration.transformDeclarationsFlat { lowerProperty(it, declaration.kind) }
+        return declaration
+    }
+
+    override fun visitScript(declaration: IrScript): IrStatement {
+        declaration.transformChildrenVoid(this)
+        declaration.transformDeclarationsFlat { lowerProperty(it, ClassKind.CLASS) }
         return declaration
     }
 
@@ -77,11 +85,16 @@ class PropertiesLowering(
         return IrFunctionImpl(
             UNDEFINED_OFFSET, UNDEFINED_OFFSET, origin, symbol, Name.identifier(name),
             declaration.visibility, Modality.OPEN, context.irBuiltIns.unitType,
-            isInline = false, isExternal = false, isTailrec = false, isSuspend = false
+            isInline = false, isExternal = false, isTailrec = false, isSuspend = false, isExpect = false, isFakeOverride = false,
+            isOperator = false
         ).apply {
             descriptor.bind(this)
 
-            extensionReceiverParameter = declaration.getter?.extensionReceiverParameter?.copyTo(this)
+            val extensionReceiver = declaration.getter?.extensionReceiverParameter
+            if (extensionReceiver != null) {
+                // Use raw type of extension receiver to avoid generic signature, which would be useless for this method.
+                extensionReceiverParameter = extensionReceiver.copyTo(this, type = extensionReceiver.type.classifierOrFail.typeWith())
+            }
 
             body = IrBlockBodyImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET)
 

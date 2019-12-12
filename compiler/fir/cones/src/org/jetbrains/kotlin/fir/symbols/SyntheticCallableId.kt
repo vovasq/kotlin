@@ -17,4 +17,12 @@ object SyntheticCallableId {
         FqName("_synthetic"),
         Name.identifier("TRY_CALL")
     )
+    val CHECK_NOT_NULL = CallableId(
+        FqName("_synthetic"),
+        Name.identifier("CHECK_NOT_NULL_CALL")
+    )
+    val ID = CallableId(
+        FqName("_synthetic"),
+        Name.identifier("ID_CALL")
+    )
 }

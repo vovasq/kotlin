@@ -21,14 +21,18 @@ import org.jetbrains.kotlin.ir.backend.js.loadKlib
 import org.jetbrains.kotlin.js.config.JsConfig
 import org.jetbrains.kotlin.js.facade.TranslationUnit
 import org.jetbrains.kotlin.js.test.engines.SpiderMonkeyEngine
+import org.jetbrains.kotlin.library.resolver.impl.KotlinLibraryResolverResultImpl
+import org.jetbrains.kotlin.library.resolver.impl.KotlinResolvedLibraryImpl
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtPsiFactory
 import org.jetbrains.kotlin.test.KotlinTestUtils
 import org.jetbrains.kotlin.test.KotlinTestWithEnvironment
+import org.jetbrains.kotlin.test.TestFiles
 import java.io.Closeable
 import java.io.File
+import java.lang.Boolean.getBoolean
 
 private val wasmRuntimeKlib =
     loadKlib("compiler/ir/serialization.js/build/wasmRuntime/klib")
@@ -48,7 +52,7 @@ abstract class BasicWasmBoxTest(
         val fileContent = KotlinTestUtils.doLoadFile(file)
 
         TestFileFactoryImpl().use { testFactory ->
-            val inputFiles: MutableList<TestFile> = KotlinTestUtils.createTestFiles(file.name, fileContent, testFactory, true, "")
+            val inputFiles: MutableList<TestFile> = TestFiles.createTestFiles(file.name, fileContent, testFactory, true, "")
             val testPackage = testFactory.testPackage
             val outputFileBase = outputDir.absolutePath + "/" + getTestName(true)
             val outputWatFile = outputFileBase + ".wat"
@@ -88,7 +92,7 @@ abstract class BasicWasmBoxTest(
         testFunction: String
     ) {
         val filesToCompile = units.map { (it as TranslationUnit.SourceFile).file }
-        val debugMode = false
+        val debugMode = getBoolean("kotlin.js.debugMode")
 
         val phaseConfig = if (debugMode) {
             val allPhasesSet = wasmPhases.toPhaseMap().values.toSet()
@@ -110,7 +114,8 @@ abstract class BasicWasmBoxTest(
             files = filesToCompile,
             configuration = config.configuration,
             phaseConfig = phaseConfig,
-            allDependencies = listOf(wasmRuntimeKlib),
+            // TODO: Bypass the resolver fow wasm.
+            allDependencies = KotlinLibraryResolverResultImpl(listOf(KotlinResolvedLibraryImpl(wasmRuntimeKlib))),
             friendDependencies = emptyList(),
             exportedDeclarations = setOf(FqName.fromSegments(listOfNotNull(testPackage, testFunction)))
         )
@@ -150,7 +155,7 @@ abstract class BasicWasmBoxTest(
         return JsConfig(project, configuration, null, null)
     }
 
-    private inner class TestFileFactoryImpl : KotlinTestUtils.TestFileFactoryNoModules<TestFile>(), Closeable {
+    private inner class TestFileFactoryImpl : TestFiles.TestFileFactoryNoModules<TestFile>(), Closeable {
         override fun create(fileName: String, text: String, directives: MutableMap<String, String>): TestFile {
             val ktFile = KtPsiFactory(project).createFile(text)
             val boxFunction = ktFile.declarations.find { it is KtNamedFunction && it.name == TEST_FUNCTION }

@@ -82,10 +82,10 @@ internal open class KtUltraLightFieldImpl protected constructor(
 
     override fun getLanguage(): Language = KotlinLanguage.INSTANCE
 
-    private val propertyDescriptor: PropertyDescriptor? by lazyPub { declaration.resolve() as? PropertyDescriptor }
+    private val propertyDescriptor: PropertyDescriptor? get() = declaration.resolve() as? PropertyDescriptor
 
-    private val kotlinType: KotlinType? by lazyPub {
-        when {
+    private val kotlinType: KotlinType?
+        get() = when {
             declaration is KtProperty && declaration.hasDelegate() ->
                 propertyDescriptor?.let {
                     val context = LightClassGenerationSupport.getInstance(project).analyze(declaration)
@@ -100,11 +100,13 @@ internal open class KtUltraLightFieldImpl protected constructor(
                 declaration.getKotlinType()
             }
         }
-    }
 
-    override val kotlinTypeForNullabilityAnnotation: KotlinType?
-        // We don't generate nullability annotations for non-backing fields in backend
-        get() = kotlinType?.takeUnless { declaration is KtEnumEntry || declaration is KtObjectDeclaration }
+    override val qualifiedNameForNullabilityAnnotation: String?
+        get() {
+            // We don't generate nullability annotations for non-backing fields in backend
+            val typeForAnnotation = kotlinType?.takeUnless { declaration is KtEnumEntry || declaration is KtObjectDeclaration }
+            return computeQualifiedNameForNullabilityAnnotation(typeForAnnotation)
+        }
 
     override val psiTypeForNullabilityAnnotation: PsiType?
         get() = type
@@ -133,19 +135,28 @@ internal open class KtUltraLightFieldImpl protected constructor(
     override fun getContainingClass() = containingClass
     override fun getContainingFile(): PsiFile? = containingClass.containingFile
 
-    override fun computeConstantValue(): Any? =
-        if (hasModifierProperty(PsiModifier.FINAL) &&
-            (TypeConversionUtil.isPrimitiveAndNotNull(_type) || _type.equalsToText(CommonClassNames.JAVA_LANG_STRING))
-        )
-            (declaration.resolve() as? VariableDescriptor)?.compileTimeInitializer?.value
-        else null
+    private val _initializer by lazyPub {
+        _constantInitializer?.createPsiLiteral(declaration)
+    }
+
+    override fun getInitializer(): PsiExpression? = _initializer
+
+    override fun hasInitializer(): Boolean = initializer !== null
+
+    private val _constantInitializer by lazyPub {
+        if ((declaration as? KtProperty)?.hasInitializer() != true) return@lazyPub null
+        if (!hasModifierProperty(PsiModifier.FINAL)) return@lazyPub null
+        if (!TypeConversionUtil.isPrimitiveAndNotNull(_type) && !_type.equalsToText(CommonClassNames.JAVA_LANG_STRING)) return@lazyPub null
+        propertyDescriptor?.compileTimeInitializer
+    }
+
+    override fun computeConstantValue(): Any? = _constantInitializer?.value
 
     override fun computeConstantValue(visitedVars: MutableSet<PsiVariable>?): Any? = computeConstantValue()
 
     override val kotlinOrigin = declaration
 
-    override val clsDelegate: PsiField
-        get() = throw IllegalStateException("Cls delegate shouldn't be loaded for ultra-light PSI!")
+    override val clsDelegate: PsiField get() = invalidAccess()
 
     override val lightMemberOrigin = LightMemberOriginForDeclaration(declaration, JvmDeclarationOriginKind.OTHER)
 

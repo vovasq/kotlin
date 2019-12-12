@@ -6,14 +6,13 @@ import proguard.gradle.ProGuardTask
 
 buildscript {
     extra["defaultSnapshotVersion"] = "1.3-SNAPSHOT"
+    val cacheRedirectorEnabled = findProperty("cacheRedirectorEnabled")?.toString()?.toBoolean() == true
 
-    // when updating please also update JPS artifacts configuration: https://jetbrains.quip.com/zzGUAYSJ6gv3/JPS-Build-update-bootstrap
-    kotlinBootstrapFrom(BootstrapOption.TeamCity("1.3.60-dev-770", onlySuccessBootstrap = false))
+    kotlinBootstrapFrom(BootstrapOption.BintrayBootstrap("1.3.70-dev-1806", cacheRedirectorEnabled))
 
     repositories {
         bootstrapKotlinRepo?.let(::maven)
 
-        val cacheRedirectorEnabled = findProperty("cacheRedirectorEnabled")?.toString()?.toBoolean() == true
         if (cacheRedirectorEnabled) {
             maven("https://cache-redirector.jetbrains.com/plugins.gradle.org/m2")
         } else {
@@ -37,7 +36,6 @@ buildscript {
 }
 
 plugins {
-    `build-scan`
     idea
     id("jps-compatible")
     id("org.jetbrains.gradle.plugin.idea-ext")
@@ -52,10 +50,7 @@ pill {
     )
 }
 
-buildScan {
-    setTermsOfServiceUrl("https://gradle.com/terms-of-service")
-    setTermsOfServiceAgree("yes")
-}
+val isTeamcityBuild = project.kotlinBuildProperties.isTeamcityBuild
 
 val configuredJdks: List<JdkId> =
     getConfiguredJdks().also {
@@ -114,8 +109,13 @@ extra["isSonatypeRelease"] = false
 // Work-around necessary to avoid setting null javaHome. Will be removed after support of lazy task configuration
 val jdkNotFoundConst = "JDK NOT FOUND"
 
-extra["JDK_16"] = jdkPath("1.6")
-extra["JDK_17"] = jdkPath("1.7")
+if (isTeamcityBuild) {
+    extra["JDK_16"] = jdkPath("1.6")
+    extra["JDK_17"] = jdkPath("1.7")
+} else {
+    extra["JDK_16"] = jdkPath("1.6", "1.8")
+    extra["JDK_17"] = jdkPath("1.7", "1.8")
+}
 extra["JDK_18"] = jdkPath("1.8")
 extra["JDK_9"] = jdkPath("9")
 extra["JDK_10"] = jdkPath("10")
@@ -143,7 +143,7 @@ rootProject.apply {
     from(rootProject.file("gradle/jps.gradle.kts"))
 }
 
-IdeVersionConfigurator.setCurrentIde(this)
+IdeVersionConfigurator.setCurrentIde(project)
 
 extra["versions.protobuf"] = "2.6.1"
 extra["versions.javax.inject"] = "1"
@@ -165,15 +165,15 @@ extra["versions.org.springframework"] = "4.2.0.RELEASE"
 extra["versions.jflex"] = "1.7.0"
 extra["versions.markdown"] = "0.1.25"
 extra["versions.trove4j"] = "1.0.20181211"
+extra["versions.completion-ranking-kotlin"] = "0.0.2"
 
 // NOTE: please, also change KTOR_NAME in pathUtil.kt and all versions in corresponding jar names in daemon tests.
 extra["versions.ktor-network"] = "1.0.1"
 
 if (!project.hasProperty("versions.kotlin-native")) {
-    extra["versions.kotlin-native"] = "1.3.50-dev-11052"
+    extra["versions.kotlin-native"] = "1.3.70-dev-13235"
 }
 
-val isTeamcityBuild = project.kotlinBuildProperties.isTeamcityBuild
 val intellijUltimateEnabled by extra(project.kotlinBuildProperties.intellijUltimateEnabled)
 val effectSystemEnabled by extra(project.getBooleanProperty("kotlin.compiler.effectSystemEnabled") ?: false)
 val newInferenceEnabled by extra(project.getBooleanProperty("kotlin.compiler.newInferenceEnabled") ?: false)
@@ -214,8 +214,10 @@ extra["compilerModules"] = arrayOf(
     ":compiler:backend.wasm",
     ":compiler:ir.serialization.common",
     ":compiler:ir.serialization.js",
+    ":compiler:ir.serialization.jvm",
     ":kotlin-util-io",
     ":kotlin-util-klib",
+    ":kotlin-util-klib-metadata",
     ":compiler:backend-common",
     ":compiler:backend",
     ":compiler:plugin-api",
@@ -235,6 +237,7 @@ extra["compilerModules"] = arrayOf(
     ":core:metadata.jvm",
     ":core:descriptors",
     ":core:descriptors.jvm",
+    ":core:descriptors.runtime",
     ":core:deserialization",
     ":core:util.runtime",
     ":core:type-system",
@@ -242,6 +245,7 @@ extra["compilerModules"] = arrayOf(
     ":compiler:fir:resolve",
     ":compiler:fir:tree",
     ":compiler:fir:psi2fir",
+    ":compiler:fir:lightTree",
     ":compiler:fir:fir2ir",
     ":compiler:fir:java"
 )
@@ -250,9 +254,7 @@ val coreLibProjects = listOfNotNull(
     ":kotlin-stdlib",
     ":kotlin-stdlib-common",
     ":kotlin-stdlib-js",
-    // Local builds are disabled at the request of the lib team
-    // TODO: Enable when tests are fixed
-    ":kotlin-stdlib-js-ir".takeIf { isTeamcityBuild },
+    ":kotlin-stdlib-js-ir",
     ":kotlin-stdlib-jdk7",
     ":kotlin-stdlib-jdk8",
     ":kotlin-test:kotlin-test-common",
@@ -260,7 +262,7 @@ val coreLibProjects = listOfNotNull(
     ":kotlin-test:kotlin-test-junit",
     ":kotlin-test:kotlin-test-junit5",
     ":kotlin-test:kotlin-test-testng",
-    ":kotlin-test:kotlin-test-js",
+    ":kotlin-test:kotlin-test-js".takeIf { !kotlinBuildProperties.isInJpsBuildIdeaSync },
     ":kotlin-reflect"
 )
 
@@ -324,6 +326,7 @@ allprojects {
         maven(intellijRepo)
         maven("https://dl.bintray.com/kotlin/ktor")
         maven("https://kotlin.bintray.com/kotlin-dependencies")
+        maven("https://jetbrains.bintray.com/intellij-third-party-dependencies")
         bootstrapKotlinRepo?.let(::maven)
         internalKotlinRepo?.let(::maven)
     }
@@ -332,10 +335,9 @@ allprojects {
 
     val commonCompilerArgs = listOfNotNull(
         "-Xuse-experimental=kotlin.Experimental",
-        "-Xallow-kotlin-package",
         "-Xread-deserialized-contracts",
         "-Xjvm-default=compatibility",
-        "-Xprogressive".takeIf { hasProperty("test.progressive.mode") } // TODO: change to "-progressive" after bootstrap
+        "-progressive".takeIf { hasProperty("test.progressive.mode") }
     )
 
     tasks.withType<org.jetbrains.kotlin.gradle.dsl.KotlinCompile<*>> {
@@ -472,7 +474,7 @@ tasks {
     register("coreLibsTest") {
         (coreLibProjects + listOf(
             ":kotlin-stdlib:samples",
-            ":kotlin-test:kotlin-test-js:kotlin-test-js-it",
+            ":kotlin-test:kotlin-test-js:kotlin-test-js-it".takeIf { !kotlinBuildProperties.isInJpsBuildIdeaSync },
             ":kotlinx-metadata-jvm",
             ":tools:binary-compatibility-validator"
         )).forEach {
@@ -501,6 +503,13 @@ tasks {
         dependsOn(":plugins:jvm-abi-gen:test")
     }
 
+    register("jvmCompilerIntegrationTest") {
+        dependsOn(
+            ":kotlin-compiler-embeddable:test",
+            ":kotlin-compiler-client-embeddable:test"
+        )
+    }
+
     register("jsCompilerTest") {
         dependsOn(":js:js.tests:test")
         dependsOn(":js:js.tests:runMocha")
@@ -516,14 +525,23 @@ tasks {
         dependsOn(":compiler:fir:fir2ir:test")
         dependsOn(":compiler:fir:lightTree:test")
     }
+    
+    register("compilerFrontendVisualizerTest") {
+        dependsOn("compiler:visualizer:test")
+    }
 
     register("scriptingTest") {
         dependsOn("dist")
         dependsOn(":kotlin-script-util:test")
         dependsOn(":kotlin-scripting-compiler:test")
+        dependsOn(":kotlin-scripting-common:test")
+        dependsOn(":kotlin-scripting-jvm:test")
         dependsOn(":kotlin-scripting-jvm-host-test:test")
+        dependsOn(":kotlin-scripting-dependencies:test")
+        dependsOn(":kotlin-scripting-dependencies-maven:test")
         dependsOn(":kotlin-scripting-jsr223-test:test")
-        dependsOn(":kotlin-scripting-jvm-host-test:embeddableTest")
+        // see comments on the task in kotlin-scripting-jvm-host-test
+//        dependsOn(":kotlin-scripting-jvm-host-test:embeddableTest")
         dependsOn(":kotlin-scripting-jsr223-test:embeddableTest")
         dependsOn(":kotlin-main-kts-test:test")
     }
@@ -538,6 +556,8 @@ tasks {
         dependsOn(":kotlin-build-common:test")
         dependsOn(":compiler:incremental-compilation-impl:test")
         dependsOn(":core:descriptors.runtime:test")
+
+        dependsOn("jvmCompilerIntegrationTest")
     }
 
     register("toolsTest") {
@@ -572,6 +592,14 @@ tasks {
         dependsOn(":jps-plugin:test")
     }
 
+    register("konan-tests") {
+        dependsOn("dist")
+        dependsOn(
+            ":kotlin-native:kotlin-native-library-reader:test",
+            ":kotlin-native:commonizer:test"
+        )
+    }
+
     register("idea-plugin-main-tests") {
         dependsOn("dist")
         dependsOn(":idea:test")
@@ -588,7 +616,8 @@ tasks {
             ":idea:jvm-debugger:jvm-debugger-core:test",
             ":idea:jvm-debugger:jvm-debugger-evaluation:test",
             ":idea:jvm-debugger:jvm-debugger-sequence:test",
-            ":idea:jvm-debugger:eval4j:test"
+            ":idea:jvm-debugger:eval4j:test",
+            ":idea:scripting-support:test"
         )
     }
 
@@ -620,7 +649,8 @@ tasks {
             ":plugins:uast-kotlin:test",
             ":kotlin-annotation-processing-gradle:test",
             ":kotlinx-serialization-compiler-plugin:test",
-            ":kotlinx-serialization-ide-plugin:test"
+            ":kotlinx-serialization-ide-plugin:test",
+            ":idea:jvm-debugger:jvm-debugger-test:test"
         )
     }
 
@@ -629,6 +659,7 @@ tasks {
         dependsOn(
             "idea-plugin-tests",
             "jps-tests",
+            "konan-tests",
             "plugins-tests",
             "android-ide-tests",
             ":generators:test"
@@ -726,12 +757,17 @@ configure<IdeaModel> {
     }
 }
 
-fun jdkPath(version: String): String {
+fun jdkPathOrNull(version: String): String? {
     val jdkName = "JDK_${version.replace(".", "")}"
     val jdkMajorVersion = JdkMajorVersion.valueOf(jdkName)
-    return configuredJdks.find { it.majorVersion == jdkMajorVersion }?.homeDir?.canonicalPath ?: jdkNotFoundConst
+    return configuredJdks.find { it.majorVersion == jdkMajorVersion }?.homeDir?.canonicalPath
 }
 
+fun jdkPath(version: String, vararg replacementVersions: String): String {
+    return jdkPathOrNull(version) ?: run {
+        replacementVersions.asSequence().map { jdkPathOrNull(it) }.find { it != null }
+    } ?: jdkNotFoundConst
+}
 
 fun Project.configureJvmProject(javaHome: String, javaVersion: String) {
     val currentJavaHome = File(System.getProperty("java.home")!!).canonicalPath

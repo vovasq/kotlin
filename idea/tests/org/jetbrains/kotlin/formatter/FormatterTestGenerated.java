@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.formatter;
 import com.intellij.testFramework.TestDataPath;
 import org.jetbrains.kotlin.test.JUnit3RunnerWithInners;
 import org.jetbrains.kotlin.test.KotlinTestUtils;
-import org.jetbrains.kotlin.test.TargetBackend;
 import org.jetbrains.kotlin.test.TestMetadata;
 import org.junit.runner.RunWith;
 
@@ -24,7 +23,7 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
     @RunWith(JUnit3RunnerWithInners.class)
     public static class Formatter extends AbstractFormatterTest {
         private void runTest(String testDataFilePath) throws Exception {
-            KotlinTestUtils.runTest(this::doTest, TargetBackend.ANY, testDataFilePath);
+            KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
         }
 
         @TestMetadata("AfterSemiColonInEnumClass.after.kt")
@@ -33,7 +32,7 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
         }
 
         public void testAllFilesPresentInFormatter() throws Exception {
-            KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter"), Pattern.compile("^([^\\.]+)\\.after\\.kt.*$"), TargetBackend.ANY, true);
+            KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter"), Pattern.compile("^([^\\.]+)\\.after\\.kt.*$"), true);
         }
 
         @TestMetadata("AnnotationBeforeExpression.after.kt")
@@ -166,6 +165,11 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
             runTest("idea/testData/formatter/ColonSpaces.after.kt");
         }
 
+        @TestMetadata("CommentAfterPackage.after.kt")
+        public void testCommentAfterPackage() throws Exception {
+            runTest("idea/testData/formatter/CommentAfterPackage.after.kt");
+        }
+
         @TestMetadata("CommentInExpressionBodies.after.kt")
         public void testCommentInExpressionBodies() throws Exception {
             runTest("idea/testData/formatter/CommentInExpressionBodies.after.kt");
@@ -236,9 +240,19 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
             runTest("idea/testData/formatter/ElvisContinuationIndentOptions.after.kt");
         }
 
+        @TestMetadata("ElvisInStringTemplate.after.kt")
+        public void testElvisInStringTemplate() throws Exception {
+            runTest("idea/testData/formatter/ElvisInStringTemplate.after.kt");
+        }
+
         @TestMetadata("ElvisIndent.after.kt")
         public void testElvisIndent() throws Exception {
             runTest("idea/testData/formatter/ElvisIndent.after.kt");
+        }
+
+        @TestMetadata("ElvisWithOperationReference.after.kt")
+        public void testElvisWithOperationReference() throws Exception {
+            runTest("idea/testData/formatter/ElvisWithOperationReference.after.kt");
         }
 
         @TestMetadata("ElvisWrap.after.kt")
@@ -259,6 +273,11 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
         @TestMetadata("EmptyLineBetweeAbstractFunctions.after.kt")
         public void testEmptyLineBetweeAbstractFunctions() throws Exception {
             runTest("idea/testData/formatter/EmptyLineBetweeAbstractFunctions.after.kt");
+        }
+
+        @TestMetadata("EmptyLineBetweeSecondaryConstructors.after.kt")
+        public void testEmptyLineBetweeSecondaryConstructors() throws Exception {
+            runTest("idea/testData/formatter/EmptyLineBetweeSecondaryConstructors.after.kt");
         }
 
         @TestMetadata("EmptyLineBetweenClassAndFunction.after.kt")
@@ -294,6 +313,11 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
         @TestMetadata("EnumArguments.after.kt")
         public void testEnumArguments() throws Exception {
             runTest("idea/testData/formatter/EnumArguments.after.kt");
+        }
+
+        @TestMetadata("EnumEntiesWithComments.after.kt")
+        public void testEnumEntiesWithComments() throws Exception {
+            runTest("idea/testData/formatter/EnumEntiesWithComments.after.kt");
         }
 
         @TestMetadata("EnumInitializerList.after.kt")
@@ -831,16 +855,31 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
         @RunWith(JUnit3RunnerWithInners.class)
         public static class CallChain extends AbstractFormatterTest {
             private void runTest(String testDataFilePath) throws Exception {
-                KotlinTestUtils.runTest(this::doTest, TargetBackend.ANY, testDataFilePath);
+                KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
             }
 
             public void testAllFilesPresentInCallChain() throws Exception {
-                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/callChain"), Pattern.compile("^([^\\.]+)\\.after\\.kt.*$"), TargetBackend.ANY, true);
+                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/callChain"), Pattern.compile("^([^\\.]+)\\.after\\.kt.*$"), true);
             }
 
             @TestMetadata("CallChainWrapping.after.kt")
             public void testCallChainWrapping() throws Exception {
                 runTest("idea/testData/formatter/callChain/CallChainWrapping.after.kt");
+            }
+
+            @TestMetadata("CallChainWrapping2.after.kt")
+            public void testCallChainWrapping2() throws Exception {
+                runTest("idea/testData/formatter/callChain/CallChainWrapping2.after.kt");
+            }
+
+            @TestMetadata("CallChainWrappingChopDown.after.kt")
+            public void testCallChainWrappingChopDown() throws Exception {
+                runTest("idea/testData/formatter/callChain/CallChainWrappingChopDown.after.kt");
+            }
+
+            @TestMetadata("CallChainWrappingInElvis.after.kt")
+            public void testCallChainWrappingInElvis() throws Exception {
+                runTest("idea/testData/formatter/callChain/CallChainWrappingInElvis.after.kt");
             }
 
             @TestMetadata("ConsecutiveCalls.after.kt")
@@ -899,7 +938,7 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
         @RunWith(JUnit3RunnerWithInners.class)
         public static class FileAnnotations extends AbstractFormatterTest {
             private void runTest(String testDataFilePath) throws Exception {
-                KotlinTestUtils.runTest(this::doTest, TargetBackend.ANY, testDataFilePath);
+                KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
             }
 
             @TestMetadata("afterComment.after.kt")
@@ -908,7 +947,7 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
             }
 
             public void testAllFilesPresentInFileAnnotations() throws Exception {
-                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/fileAnnotations"), Pattern.compile("^([^\\.]+)\\.after\\.kt.*$"), TargetBackend.ANY, true);
+                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/fileAnnotations"), Pattern.compile("^([^\\.]+)\\.after\\.kt.*$"), true);
             }
 
             @TestMetadata("beforeDeclaration.after.kt")
@@ -924,6 +963,21 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
             @TestMetadata("beforePackage.after.kt")
             public void testBeforePackage() throws Exception {
                 runTest("idea/testData/formatter/fileAnnotations/beforePackage.after.kt");
+            }
+
+            @TestMetadata("commentAfter.after.kt")
+            public void testCommentAfter() throws Exception {
+                runTest("idea/testData/formatter/fileAnnotations/commentAfter.after.kt");
+            }
+
+            @TestMetadata("commentAfter2.after.kt")
+            public void testCommentAfter2() throws Exception {
+                runTest("idea/testData/formatter/fileAnnotations/commentAfter2.after.kt");
+            }
+
+            @TestMetadata("commentAfter3.after.kt")
+            public void testCommentAfter3() throws Exception {
+                runTest("idea/testData/formatter/fileAnnotations/commentAfter3.after.kt");
             }
 
             @TestMetadata("inEmptyFile.after.kt")
@@ -942,11 +996,11 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
         @RunWith(JUnit3RunnerWithInners.class)
         public static class ModifierList extends AbstractFormatterTest {
             private void runTest(String testDataFilePath) throws Exception {
-                KotlinTestUtils.runTest(this::doTest, TargetBackend.ANY, testDataFilePath);
+                KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
             }
 
             public void testAllFilesPresentInModifierList() throws Exception {
-                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/modifierList"), Pattern.compile("^([^\\.]+)\\.after\\.kt.*$"), TargetBackend.ANY, true);
+                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/modifierList"), Pattern.compile("^([^\\.]+)\\.after\\.kt.*$"), true);
             }
 
             @TestMetadata("funAnnotationBeforeAnnotation.after.kt")
@@ -1035,11 +1089,11 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
         @RunWith(JUnit3RunnerWithInners.class)
         public static class ParameterList extends AbstractFormatterTest {
             private void runTest(String testDataFilePath) throws Exception {
-                KotlinTestUtils.runTest(this::doTest, TargetBackend.ANY, testDataFilePath);
+                KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
             }
 
             public void testAllFilesPresentInParameterList() throws Exception {
-                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/parameterList"), Pattern.compile("^([^\\.]+)\\.after\\.kt.*$"), TargetBackend.ANY, true);
+                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/parameterList"), Pattern.compile("^([^\\.]+)\\.after\\.kt.*$"), true);
             }
 
             @TestMetadata("ArgumentListChopAsNeeded.after.kt")
@@ -1104,11 +1158,11 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
     @RunWith(JUnit3RunnerWithInners.class)
     public static class FormatterInverted extends AbstractFormatterTest {
         private void runTest(String testDataFilePath) throws Exception {
-            KotlinTestUtils.runTest(this::doTestInverted, TargetBackend.ANY, testDataFilePath);
+            KotlinTestUtils.runTest(this::doTestInverted, this, testDataFilePath);
         }
 
         public void testAllFilesPresentInFormatterInverted() throws Exception {
-            KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter"), Pattern.compile("^([^\\.]+)\\.after\\.inv\\.kt.*$"), TargetBackend.ANY, true);
+            KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter"), Pattern.compile("^([^\\.]+)\\.after\\.inv\\.kt.*$"), true);
         }
 
         @TestMetadata("AnonymousInitializersLineBreak.after.inv.kt")
@@ -1376,16 +1430,31 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
         @RunWith(JUnit3RunnerWithInners.class)
         public static class CallChain extends AbstractFormatterTest {
             private void runTest(String testDataFilePath) throws Exception {
-                KotlinTestUtils.runTest(this::doTestInverted, TargetBackend.ANY, testDataFilePath);
+                KotlinTestUtils.runTest(this::doTestInverted, this, testDataFilePath);
             }
 
             public void testAllFilesPresentInCallChain() throws Exception {
-                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/callChain"), Pattern.compile("^([^\\.]+)\\.after\\.inv\\.kt.*$"), TargetBackend.ANY, true);
+                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/callChain"), Pattern.compile("^([^\\.]+)\\.after\\.inv\\.kt.*$"), true);
             }
 
             @TestMetadata("CallChainWrapping.after.inv.kt")
             public void testCallChainWrapping() throws Exception {
                 runTest("idea/testData/formatter/callChain/CallChainWrapping.after.inv.kt");
+            }
+
+            @TestMetadata("CallChainWrapping2.after.inv.kt")
+            public void testCallChainWrapping2() throws Exception {
+                runTest("idea/testData/formatter/callChain/CallChainWrapping2.after.inv.kt");
+            }
+
+            @TestMetadata("CallChainWrappingChopDown.after.inv.kt")
+            public void testCallChainWrappingChopDown() throws Exception {
+                runTest("idea/testData/formatter/callChain/CallChainWrappingChopDown.after.inv.kt");
+            }
+
+            @TestMetadata("CallChainWrappingInElvis.after.inv.kt")
+            public void testCallChainWrappingInElvis() throws Exception {
+                runTest("idea/testData/formatter/callChain/CallChainWrappingInElvis.after.inv.kt");
             }
 
             @TestMetadata("ConsecutiveSafeCallsIndent.after.inv.kt")
@@ -1409,11 +1478,11 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
         @RunWith(JUnit3RunnerWithInners.class)
         public static class FileAnnotations extends AbstractFormatterTest {
             private void runTest(String testDataFilePath) throws Exception {
-                KotlinTestUtils.runTest(this::doTestInverted, TargetBackend.ANY, testDataFilePath);
+                KotlinTestUtils.runTest(this::doTestInverted, this, testDataFilePath);
             }
 
             public void testAllFilesPresentInFileAnnotations() throws Exception {
-                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/fileAnnotations"), Pattern.compile("^([^\\.]+)\\.after\\.inv\\.kt.*$"), TargetBackend.ANY, true);
+                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/fileAnnotations"), Pattern.compile("^([^\\.]+)\\.after\\.inv\\.kt.*$"), true);
             }
         }
 
@@ -1422,11 +1491,11 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
         @RunWith(JUnit3RunnerWithInners.class)
         public static class ModifierList extends AbstractFormatterTest {
             private void runTest(String testDataFilePath) throws Exception {
-                KotlinTestUtils.runTest(this::doTestInverted, TargetBackend.ANY, testDataFilePath);
+                KotlinTestUtils.runTest(this::doTestInverted, this, testDataFilePath);
             }
 
             public void testAllFilesPresentInModifierList() throws Exception {
-                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/modifierList"), Pattern.compile("^([^\\.]+)\\.after\\.inv\\.kt.*$"), TargetBackend.ANY, true);
+                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/modifierList"), Pattern.compile("^([^\\.]+)\\.after\\.inv\\.kt.*$"), true);
             }
         }
 
@@ -1435,11 +1504,11 @@ public class FormatterTestGenerated extends AbstractFormatterTest {
         @RunWith(JUnit3RunnerWithInners.class)
         public static class ParameterList extends AbstractFormatterTest {
             private void runTest(String testDataFilePath) throws Exception {
-                KotlinTestUtils.runTest(this::doTestInverted, TargetBackend.ANY, testDataFilePath);
+                KotlinTestUtils.runTest(this::doTestInverted, this, testDataFilePath);
             }
 
             public void testAllFilesPresentInParameterList() throws Exception {
-                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/parameterList"), Pattern.compile("^([^\\.]+)\\.after\\.inv\\.kt.*$"), TargetBackend.ANY, true);
+                KotlinTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("idea/testData/formatter/parameterList"), Pattern.compile("^([^\\.]+)\\.after\\.inv\\.kt.*$"), true);
             }
 
             @TestMetadata("DefaultParameterValues.after.inv.kt")

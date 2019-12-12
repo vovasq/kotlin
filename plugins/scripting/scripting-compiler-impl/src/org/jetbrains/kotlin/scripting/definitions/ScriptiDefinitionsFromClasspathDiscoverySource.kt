@@ -289,7 +289,7 @@ private fun loadScriptDefinition(
     val anns = loadAnnotationsFromClass(templateClassBytes)
     for (ann in anns) {
         var def: ScriptDefinition? = null
-        if (ann.name == KotlinScript::class.simpleName) {
+        if (ann.name == KotlinScript::class.java.simpleName) {
             def = LazyScriptDefinitionFromDiscoveredClass(
                 hostConfiguration,
                 anns,
@@ -297,7 +297,7 @@ private fun loadScriptDefinition(
                 classpathWithLoader.classpath,
                 messageReporter
             )
-        } else if (ann.name == ScriptTemplateDefinition::class.simpleName) {
+        } else if (ann.name == ScriptTemplateDefinition::class.java.simpleName) {
             val templateClass = classpathWithLoader.classLoader.loadClass(templateClassName).kotlin
             def = ScriptDefinition.FromLegacy(
                 hostConfiguration,
@@ -311,7 +311,7 @@ private fun loadScriptDefinition(
         if (def != null) {
             messageReporter(
                 ScriptDiagnostic.Severity.DEBUG,
-                "Configure scripting: Added template $templateClassName from ${classpathWithLoader.classpath}"
+                "Configure scripting: Added template $templateClassName from ${classpathWithLoader.classpath.sorted()}"
             )
             return def
         }

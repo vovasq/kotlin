@@ -8,10 +8,10 @@ package org.jetbrains.kotlin.backend.jvm.codegen
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import org.jetbrains.kotlin.backend.common.ir.ir2string
-import org.jetbrains.kotlin.backend.jvm.lower.MultifileFacadeFileEntry
 import org.jetbrains.kotlin.codegen.BaseExpressionCodegen
 import org.jetbrains.kotlin.codegen.ClassBuilder
 import org.jetbrains.kotlin.codegen.OwnerKind
+import org.jetbrains.kotlin.codegen.coroutines.INVOKE_SUSPEND_METHOD_NAME
 import org.jetbrains.kotlin.codegen.inline.*
 import org.jetbrains.kotlin.codegen.serialization.JvmSerializationBindings
 import org.jetbrains.kotlin.codegen.state.GenerationState
@@ -21,11 +21,8 @@ import org.jetbrains.kotlin.incremental.components.LookupLocation
 import org.jetbrains.kotlin.incremental.components.NoLookupLocation
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrFunction
-import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
-import org.jetbrains.kotlin.ir.util.parentAsClass
-import org.jetbrains.kotlin.ir.util.render
-import org.jetbrains.kotlin.load.java.JvmAbi
+import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOrigin
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodGenericSignature
 import org.jetbrains.kotlin.resolve.jvm.jvmSignature.JvmMethodSignature
@@ -37,7 +34,8 @@ import org.jetbrains.org.objectweb.asm.tree.MethodNode
 class IrSourceCompilerForInline(
     override val state: GenerationState,
     override val callElement: IrMemberAccessExpression,
-    private val codegen: ExpressionCodegen,
+    private val callee: IrFunction,
+    internal val codegen: ExpressionCodegen,
     private val data: BlockInfo
 ) : SourceCompilerForInline {
 
@@ -52,16 +50,15 @@ class IrSourceCompilerForInline(
         get() = codegen.context.psiSourceManager.getKtFile(codegen.irFunction.fileParent)
 
     override val contextKind: OwnerKind
-        get() = OwnerKind.getMemberOwnerKind(callElement.descriptor.containingDeclaration)
+        get() = OwnerKind.getMemberOwnerKind(callElement.symbol.descriptor.containingDeclaration!!)
 
     override val inlineCallSiteInfo: InlineCallSiteInfo
         get() {
-            //TODO: support nested inline calls
-            val signature = codegen.methodSignatureMapper.mapSignatureSkipGeneric(codegen.irFunction)
+            val root = generateSequence(codegen) { it.inlinedInto }.last()
             return InlineCallSiteInfo(
-                codegen.classCodegen.type.internalName,
-                signature.asmMethod.name,
-                signature.asmMethod.descriptor,
+                root.classCodegen.type.internalName,
+                root.signature.asmMethod.name,
+                root.signature.asmMethod.descriptor,
                 //compilationContextFunctionDescriptor.isInlineOrInsideInline()
                 false,
                 compilationContextFunctionDescriptor.isSuspend
@@ -71,23 +68,21 @@ class IrSourceCompilerForInline(
     override val lazySourceMapper: DefaultSourceMapper
         get() = codegen.classCodegen.getOrCreateSourceMapper()
 
-    private fun makeInlineNode(function: IrFunction, classCodegen: ClassCodegen, marker: CallSiteMarker?): SMAPAndMethodNode {
+    private fun makeInlineNode(function: IrFunction, classCodegen: ClassCodegen, isLambda: Boolean): SMAPAndMethodNode {
         var node: MethodNode? = null
-        val functionCodegen = object : FunctionCodegen(function, classCodegen, isInlineLambda = marker == null) {
+        val functionCodegen = object : FunctionCodegen(function, classCodegen, codegen.takeIf { isLambda }) {
             override fun createMethod(flags: Int, signature: JvmMethodGenericSignature): MethodVisitor {
                 val asmMethod = signature.asmMethod
                 node = MethodNode(Opcodes.API_VERSION, flags, asmMethod.name, asmMethod.descriptor, signature.genericsSignature, null)
                 return wrapWithMaxLocalCalc(node!!)
             }
         }
-        lazySourceMapper.callSiteMarker = marker
         functionCodegen.generate()
-        lazySourceMapper.callSiteMarker = null
         return SMAPAndMethodNode(node!!, SMAP(classCodegen.getOrCreateSourceMapper().resultMappings))
     }
 
     override fun generateLambdaBody(lambdaInfo: ExpressionLambda): SMAPAndMethodNode =
-        makeInlineNode((lambdaInfo as IrExpressionLambdaImpl).function, codegen.classCodegen, null)
+        makeInlineNode((lambdaInfo as IrExpressionLambdaImpl).function, codegen.classCodegen, true)
 
     override fun doCreateMethodNodeFromSource(
         callableDescriptor: FunctionDescriptor,
@@ -95,32 +90,8 @@ class IrSourceCompilerForInline(
         callDefault: Boolean,
         asmMethod: Method
     ): SMAPAndMethodNode {
-        assert(callableDescriptor == callElement.descriptor.original)
-        assert(codegen.lastLineNumber >= 0)
-
-        val irFunction = getFunctionToInline(callElement as IrCall, jvmSignature, callDefault)
-        return makeInlineNode(irFunction, FakeClassCodegen(irFunction, codegen.classCodegen), CallSiteMarker(codegen.lastLineNumber))
-    }
-
-    private fun getFunctionToInline(call: IrCall, jvmSignature: JvmMethodSignature, callDefault: Boolean): IrFunction {
-        val callee = call.symbol.owner
-        val parent = callee.parentAsClass
-        if (callDefault) {
-            /*TODO: get rid of hack*/
-            return parent.declarations.filterIsInstance<IrFunction>().single {
-                it.descriptor.name.asString() == jvmSignature.asmMethod.name + JvmAbi.DEFAULT_PARAMS_IMPL_SUFFIX &&
-                        codegen.context.methodSignatureMapper.mapSignatureSkipGeneric(callee).asmMethod.descriptor.startsWith(
-                            jvmSignature.asmMethod.descriptor.substringBeforeLast(')')
-                        )
-            }
-        }
-
-        if (parent.fileParent.fileEntry is MultifileFacadeFileEntry) {
-            return (codegen.context.multifileFacadeMemberToPartMember[callee.symbol]
-                ?: error("Function from a multi-file facade without the link to the function in the part: ${callee.render()}")).owner
-        }
-
-        return callee
+        assert(callableDescriptor == callee.symbol.descriptor.original) { "Expected $callableDescriptor got ${callee.descriptor.original}" }
+        return makeInlineNode(callee, FakeClassCodegen(callee, codegen.classCodegen), false)
     }
 
     override fun hasFinallyBlocks() = data.hasFinallyBlocks()
@@ -132,14 +103,15 @@ class IrSourceCompilerForInline(
 
     override fun createCodegenForExternalFinallyBlockGenerationOnNonLocalReturn(finallyNode: MethodNode, curFinallyDepth: Int) =
         ExpressionCodegen(
-            codegen.irFunction, codegen.frameMap, InstructionAdapter(finallyNode), codegen.classCodegen, codegen.isInlineLambda
+            codegen.irFunction, codegen.signature, codegen.frameMap, InstructionAdapter(finallyNode), codegen.classCodegen,
+            codegen.inlinedInto
         ).also {
             it.finallyDepth = curFinallyDepth
         }
 
     override fun isCallInsideSameModuleAsDeclared(functionDescriptor: FunctionDescriptor): Boolean {
-        //TODO("not implemented")
-        return true
+        // TODO port to IR structures
+        return DescriptorUtils.areInSameModule(DescriptorUtils.getDirectMember(functionDescriptor), codegen.irFunction.descriptor)
     }
 
     override fun isFinallyMarkerRequired(): Boolean {
@@ -147,18 +119,23 @@ class IrSourceCompilerForInline(
     }
 
     override val compilationContextDescriptor: DeclarationDescriptor
-        get() = callElement.descriptor
+        get() = callElement.symbol.descriptor
 
     override val compilationContextFunctionDescriptor: FunctionDescriptor
-        get() = callElement.descriptor as FunctionDescriptor
+        get() = callElement.symbol.descriptor as FunctionDescriptor
 
     override fun getContextLabels(): Set<String> {
-        return setOf(codegen.irFunction.name.asString())
+        val name = codegen.irFunction.name.asString()
+        if (name == INVOKE_SUSPEND_METHOD_NAME) {
+            codegen.context.suspendLambdaToOriginalFunctionMap[codegen.irFunction.parent]?.let {
+                return setOf(it.name.asString())
+            }
+        }
+        return setOf(name)
     }
 
-    override fun initializeInlineFunctionContext(functionDescriptor: FunctionDescriptor) {
-        //TODO
-    }
+    internal val isPrimaryCopy: Boolean
+        get() = codegen.classCodegen !is FakeClassCodegen
 
     private class FakeClassCodegen(irFunction: IrFunction, codegen: ClassCodegen) :
         ClassCodegen(irFunction.parent as IrClass, codegen.context) {

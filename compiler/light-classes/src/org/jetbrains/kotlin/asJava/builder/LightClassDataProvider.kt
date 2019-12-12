@@ -26,7 +26,7 @@ import org.jetbrains.kotlin.analyzer.KotlinModificationTrackerService
 import org.jetbrains.kotlin.asJava.KotlinAsJavaSupport
 import org.jetbrains.kotlin.asJava.LightClassGenerationSupport
 import org.jetbrains.kotlin.asJava.classes.getOutermostClassOrObject
-import org.jetbrains.kotlin.codegen.CompilationErrorHandler
+import org.jetbrains.kotlin.asJava.classes.safeIsLocal
 import org.jetbrains.kotlin.codegen.MemberCodegen
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.fileClasses.JvmFileClassUtil
@@ -56,13 +56,10 @@ class LightClassDataProviderForClassOrObject(
     }
 
     override fun compute(): CachedValueProvider.Result<LightClassDataHolder.ForClass>? {
+        val trackerService = KotlinModificationTrackerService.getInstance(classOrObject.project)
         return CachedValueProvider.Result.create(
-                computeLightClassData(),
-                if (classOrObject.isLocal()) {
-                    KotlinModificationTrackerService.getInstance(classOrObject.project).modificationTracker
-                } else {
-                    KotlinModificationTrackerService.getInstance(classOrObject.project).outOfBlockModificationTracker
-                }
+            computeLightClassData(),
+            if (classOrObject.safeIsLocal()) trackerService.modificationTracker else trackerService.outOfBlockModificationTracker
         )
     }
 
@@ -85,13 +82,13 @@ sealed class LightClassDataProviderForFileFacade constructor(
                 val fileClassInfo = JvmFileClassUtil.getFileClassInfoNoResolve(representativeFile)
                 if (!fileClassInfo.withJvmMultifileClass) {
                     val codegen = state.factory.forPackage(representativeFile.packageFqName, files)
-                    codegen.generate(CompilationErrorHandler.THROW_EXCEPTION)
+                    codegen.generate()
                     state.factory.done()
                     return@generate
                 }
 
                 val codegen = state.factory.forMultifileClass(facadeFqName, files)
-                codegen.generate(CompilationErrorHandler.THROW_EXCEPTION)
+                codegen.generate()
                 state.factory.done()
             }
         }
@@ -144,7 +141,7 @@ class LightClassDataProviderForScript(private val script: KtScript) : CachedValu
                 state, files ->
                 val scriptFile = files.first()
                 val codegen = state.factory.forPackage(scriptFile.packageFqName, files)
-                codegen.generate(CompilationErrorHandler.THROW_EXCEPTION)
+                codegen.generate()
                 state.factory.done()
             }
         }
@@ -191,7 +188,7 @@ private class ClassFilterForClassOrObject(private val classOrObject: KtClassOrOb
         // TODO: current method will process local classes in irrelevant declarations, it should be fixed.
         // We generate all enclosing classes
 
-        if (classOrObject.isLocal && processingClassOrObject.isLocal) {
+        if (classOrObject.safeIsLocal() && processingClassOrObject.safeIsLocal()) {
             val commonParent = PsiTreeUtil.findCommonParent(classOrObject, processingClassOrObject)
             return commonParent != null && commonParent !is PsiFile
         }

@@ -157,6 +157,11 @@ public class IrInlineSuspendTestsGenerated extends AbstractIrInlineSuspendTests 
             runTestWithPackageReplacement("compiler/testData/codegen/boxInline/suspend/defaultParameter/defaultValueCrossinline.kt", "kotlin.coroutines");
         }
 
+        @TestMetadata("defaultValueInlineFromMultiFileFacade.kt")
+        public void testDefaultValueInlineFromMultiFileFacade_1_3() throws Exception {
+            runTestWithPackageReplacement("compiler/testData/codegen/boxInline/suspend/defaultParameter/defaultValueInlineFromMultiFileFacade.kt", "kotlin.coroutines");
+        }
+
         @TestMetadata("defaultValueInline.kt")
         public void testDefaultValueInline_1_3() throws Exception {
             runTestWithPackageReplacement("compiler/testData/codegen/boxInline/suspend/defaultParameter/defaultValueInline.kt", "kotlin.coroutines");
@@ -322,6 +327,11 @@ public class IrInlineSuspendTestsGenerated extends AbstractIrInlineSuspendTests 
         @TestMetadata("insideObject.kt")
         public void testInsideObject_1_3() throws Exception {
             runTestWithPackageReplacement("compiler/testData/codegen/boxInline/suspend/stateMachine/insideObject.kt", "kotlin.coroutines");
+        }
+
+        @TestMetadata("lambdaTransformation.kt")
+        public void testLambdaTransformation() throws Exception {
+            runTest("compiler/testData/codegen/boxInline/suspend/stateMachine/lambdaTransformation.kt");
         }
 
         @TestMetadata("normalInline.kt")

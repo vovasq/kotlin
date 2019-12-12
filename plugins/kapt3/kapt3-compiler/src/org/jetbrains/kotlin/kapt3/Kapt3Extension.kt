@@ -24,14 +24,18 @@ import com.sun.tools.javac.tree.TreeMaker
 import com.sun.tools.javac.util.Context
 import org.jetbrains.kotlin.analyzer.AnalysisResult
 import org.jetbrains.kotlin.backend.common.output.OutputFile
+import org.jetbrains.kotlin.base.kapt3.AptMode.APT_ONLY
+import org.jetbrains.kotlin.base.kapt3.AptMode.WITH_COMPILATION
+import org.jetbrains.kotlin.base.kapt3.DetectMemoryLeaksMode
+import org.jetbrains.kotlin.base.kapt3.KaptFlag
 import org.jetbrains.kotlin.base.kapt3.KaptOptions
+import org.jetbrains.kotlin.base.kapt3.collectJavaSourceFiles
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity.OUTPUT
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.common.messages.OutputMessageUtil
 import org.jetbrains.kotlin.cli.common.output.writeAll
 import org.jetbrains.kotlin.cli.jvm.plugins.ServiceLoaderLite
 import org.jetbrains.kotlin.codegen.ClassBuilderMode
-import org.jetbrains.kotlin.codegen.CompilationErrorHandler
 import org.jetbrains.kotlin.codegen.KotlinCodegenFacade
 import org.jetbrains.kotlin.codegen.OriginCollectingClassBuilderFactory
 import org.jetbrains.kotlin.codegen.state.GenerationState
@@ -40,16 +44,15 @@ import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.container.ComponentProvider
 import org.jetbrains.kotlin.context.ProjectContext
 import org.jetbrains.kotlin.descriptors.ModuleDescriptor
-import org.jetbrains.kotlin.base.kapt3.AptMode.APT_ONLY
-import org.jetbrains.kotlin.base.kapt3.AptMode.WITH_COMPILATION
-import org.jetbrains.kotlin.base.kapt3.DetectMemoryLeaksMode
-import org.jetbrains.kotlin.base.kapt3.KaptFlag
-import org.jetbrains.kotlin.base.kapt3.collectJavaSourceFiles
-import org.jetbrains.kotlin.kapt3.base.*
+import org.jetbrains.kotlin.kapt3.base.KaptContext
+import org.jetbrains.kotlin.kapt3.base.LoadedProcessors
+import org.jetbrains.kotlin.kapt3.base.ProcessorLoader
+import org.jetbrains.kotlin.kapt3.base.doAnnotationProcessing
 import org.jetbrains.kotlin.kapt3.base.stubs.KaptStubLineInformation.Companion.KAPT_METADATA_EXTENSION
 import org.jetbrains.kotlin.kapt3.base.util.KaptBaseError
 import org.jetbrains.kotlin.kapt3.base.util.getPackageNameJava9Aware
 import org.jetbrains.kotlin.kapt3.base.util.info
+import org.jetbrains.kotlin.kapt3.base.util.isJava11OrLater
 import org.jetbrains.kotlin.kapt3.diagnostic.KaptError
 import org.jetbrains.kotlin.kapt3.stubs.ClassFileToSourceStubConverter
 import org.jetbrains.kotlin.kapt3.stubs.ClassFileToSourceStubConverter.KaptStub
@@ -65,8 +68,6 @@ import java.io.StringWriter
 import java.io.Writer
 import java.net.URLClassLoader
 import javax.annotation.processing.Processor
-
-private const val KAPT_KOTLIN_GENERATED_OPTION_NAME = "kapt.kotlin.generated"
 
 class ClasspathBasedKapt3Extension(
     options: KaptOptions,
@@ -209,15 +210,10 @@ abstract class AbstractKapt3Extension(
                 bindingTrace.bindingContext,
                 module,
                 listOf(options.sourcesOutputDir),
-                listOfNotNull(options.sourcesOutputDir, getKotlinGeneratedSourcesDirectory()),
+                listOfNotNull(options.sourcesOutputDir, options.getKotlinGeneratedSourcesDirectory()),
                 addToEnvironment = true
             )
         }
-    }
-
-    private fun getKotlinGeneratedSourcesDirectory(): File? {
-        val value = options.processingOptions[KAPT_KOTLIN_GENERATED_OPTION_NAME] ?: return null
-        return File(value).takeIf { it.exists() }
     }
 
     private fun runAnnotationProcessing(kaptContext: KaptContext, processors: LoadedProcessors) {
@@ -269,10 +265,12 @@ abstract class AbstractKapt3Extension(
             bindingContext,
             files,
             compilerConfiguration
-        ).targetId(targetId).build()
+        ).targetId(targetId)
+            .isIrBackend(false)
+            .build()
 
         val (classFilesCompilationTime) = measureTimeMillis {
-            KotlinCodegenFacade.compileCorrectFiles(generationState, CompilationErrorHandler.THROW_EXCEPTION)
+            KotlinCodegenFacade.compileCorrectFiles(generationState)
         }
 
         val compiledClasses = builderFactory.compiledClasses
@@ -365,8 +363,15 @@ private class PrettyWithWorkarounds(private val context: Context, val out: Write
         if ((tree.mods.flags and ENUM) != 0L) {
             // Pretty does not print annotations for enum values for some reason
             printExpr(TreeMaker.instance(context).Modifiers(0, tree.mods.annotations))
-        }
 
+            if (isJava11OrLater()) {
+                // Print enums fully, there is an issue when using Pretty in JDK 11.
+                // See https://youtrack.jetbrains.com/issue/KT-33052.
+                print("/*public static final*/ ${tree.name}")
+                tree.init?.let { print(" /* = $it */") }
+                return
+            }
+        }
         super.visitVarDef(tree)
     }
 }

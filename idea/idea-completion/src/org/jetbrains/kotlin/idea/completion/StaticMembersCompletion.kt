@@ -26,8 +26,8 @@ import org.jetbrains.kotlin.idea.codeInsight.collectSyntheticStaticMembersAndCon
 import org.jetbrains.kotlin.idea.core.KotlinIndicesHelper
 import org.jetbrains.kotlin.idea.core.targetDescriptors
 import org.jetbrains.kotlin.idea.resolve.ResolutionFacade
-import org.jetbrains.kotlin.lexer.KtTokens
-import org.jetbrains.kotlin.psi.KtClass
+import org.jetbrains.kotlin.idea.util.CallType
+import org.jetbrains.kotlin.idea.util.substituteExtensionIfCallable
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.psi.KtNamedDeclaration
 import org.jetbrains.kotlin.psi.KtObjectDeclaration
@@ -35,6 +35,7 @@ import org.jetbrains.kotlin.resolve.ImportedFromObjectCallableDescriptor
 import org.jetbrains.kotlin.resolve.scopes.DescriptorKindExclude
 import org.jetbrains.kotlin.resolve.scopes.DescriptorKindFilter
 import org.jetbrains.kotlin.resolve.scopes.getDescriptorsFiltered
+import org.jetbrains.kotlin.types.KotlinType
 import java.util.*
 
 class StaticMembersCompletion(
@@ -99,9 +100,8 @@ class StaticMembersCompletion(
         val descriptorKindFilter = DescriptorKindFilter.CALLABLES exclude DescriptorKindExclude.Extensions
         val nameFilter: (String) -> Boolean = { prefixMatcher.prefixMatches(it) }
 
-        val filter = { declaration: KtNamedDeclaration, objectDeclaration: KtObjectDeclaration ->
-            !declaration.hasModifier(KtTokens.OVERRIDE_KEYWORD) && objectDeclaration.isTopLevelOrCompanion()
-        }
+        val filter = { _: KtNamedDeclaration, _: KtObjectDeclaration -> true }
+
         indicesHelper.processObjectMembers(descriptorKindFilter, nameFilter, filter) {
             if (it !in alreadyAdded) {
                 processor(it)
@@ -117,13 +117,16 @@ class StaticMembersCompletion(
         }
     }
 
-    private fun KtObjectDeclaration.isTopLevelOrCompanion(): Boolean {
-        if (isCompanion()) {
-            val owner = parent.parent as? KtClass ?: return false
-            return owner.isTopLevel()
-        }
-        else {
-            return isTopLevel()
+    private fun processObjectMemberExtensions(indicesHelper: KotlinIndicesHelper, processor: (CallableDescriptor) -> Unit) {
+        val descriptorKindFilter = DescriptorKindFilter.CALLABLES exclude DescriptorKindExclude.NonExtensions
+        val nameFilter: (String) -> Boolean = { prefixMatcher.prefixMatches(it) }
+
+        val filter = { _: KtNamedDeclaration, _: KtObjectDeclaration -> true }
+
+        indicesHelper.processObjectMembers(descriptorKindFilter, nameFilter, filter) {
+            if (it is CallableDescriptor && it !in alreadyAdded) {
+                processor(it)
+            }
         }
     }
 
@@ -132,6 +135,36 @@ class StaticMembersCompletion(
         membersFromImports(file)
                 .flatMap { factory.createStandardLookupElementsForDescriptor(it, useReceiverTypes = true) }
                 .forEach { collector.addElement(it) }
+    }
+
+    /**
+     * Collects extensions declared as members in objects into [collector], for example:
+     *
+     * ```
+     * object Obj {
+     *     fun String.foo() {}
+     * }
+     * ```
+     *
+     * `foo` here is object member extension.
+     */
+    fun completeObjectMemberExtensionsFromIndices(
+        indicesHelper: KotlinIndicesHelper,
+        receiverTypes: Collection<KotlinType>,
+        callType: CallType<*>,
+        collector: LookupElementsCollector
+    ) {
+        val factory = decoratedLookupElementFactory(ItemPriority.STATIC_MEMBER)
+        processObjectMemberExtensions(indicesHelper) { objectMemberDescriptor ->
+            val substitutedExtensions = objectMemberDescriptor.substituteExtensionIfCallable(receiverTypes, callType)
+
+            for (substituted in substitutedExtensions) {
+                val lookups = factory.createStandardLookupElementsForDescriptor(substituted, useReceiverTypes = true)
+                lookups.forEach { collector.addElement(it) }
+            }
+
+            collector.flushToResultSet()
+        }
     }
 
     fun completeFromIndices(indicesHelper: KotlinIndicesHelper, collector: LookupElementsCollector) {

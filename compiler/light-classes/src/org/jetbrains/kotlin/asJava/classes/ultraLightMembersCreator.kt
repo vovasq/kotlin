@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.asJava.classes
 
+import com.intellij.lang.Language
 import com.intellij.psi.*
 import com.intellij.psi.impl.light.LightMethodBuilder
 import com.intellij.psi.impl.light.LightModifierList
@@ -18,7 +19,7 @@ import org.jetbrains.kotlin.codegen.state.KotlinTypeMapper
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.descriptors.annotations.Annotated
 import org.jetbrains.kotlin.lexer.KtTokens
-import org.jetbrains.kotlin.lexer.KtTokens.REIFIED_KEYWORD
+import org.jetbrains.kotlin.lexer.KtTokens.*
 import org.jetbrains.kotlin.load.java.JvmAbi
 import org.jetbrains.kotlin.load.kotlin.TypeMappingMode
 import org.jetbrains.kotlin.name.FqName
@@ -26,6 +27,7 @@ import org.jetbrains.kotlin.name.SpecialNames
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.hasExpectModifier
 import org.jetbrains.kotlin.psi.psiUtil.hasSuspendModifier
+import org.jetbrains.kotlin.psi.psiUtil.isPrivate
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.DescriptorUtils
 import org.jetbrains.kotlin.resolve.descriptorUtil.isPublishedApi
@@ -35,6 +37,7 @@ import org.jetbrains.kotlin.resolve.jvm.annotations.JVM_SYNTHETIC_ANNOTATION_FQ_
 import org.jetbrains.kotlin.resolve.jvm.annotations.STRICTFP_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.resolve.jvm.annotations.SYNCHRONIZED_ANNOTATION_FQ_NAME
 import org.jetbrains.kotlin.resolve.jvm.diagnostics.JvmDeclarationOriginKind
+import org.jetbrains.kotlin.util.isOrdinaryClass
 
 internal class UltraLightMembersCreator(
     private val containingClass: KtLightClass,
@@ -115,6 +118,11 @@ internal class UltraLightMembersCreator(
             ktFunction.hasExpectModifier()
         ) return emptyList()
 
+
+        if (ktFunction.modifierList?.hasSuspendModifier() == true && ktFunction.isPrivate()) {
+            return emptyList()
+        }
+
         val basicMethod = asJavaMethod(ktFunction, forceStatic, forcePrivate)
 
         val result = mutableListOf(basicMethod)
@@ -157,8 +165,7 @@ internal class UltraLightMembersCreator(
     ): KtLightMethod {
         val isConstructor = ktFunction is KtConstructor<*>
         val name =
-            if (isConstructor)
-                containingClass.name
+            if (isConstructor) containingClass.name
             else computeMethodName(ktFunction, ktFunction.name ?: SpecialNames.NO_NAME_PROVIDED.asString(), MethodType.REGULAR)
 
         val method = lightMethod(name.orEmpty(), ktFunction, forceStatic, forcePrivate)
@@ -233,6 +240,71 @@ internal class UltraLightMembersCreator(
     private fun DeclarationDescriptor.getterIfProperty() =
         if (this@getterIfProperty is PropertyDescriptor) this@getterIfProperty.getter else this@getterIfProperty
 
+    private inner class UltraLightModifierListForMember(
+        private val declaration: KtDeclaration,
+        private val accessedProperty: KtProperty?,
+        private val outerDeclaration: KtDeclaration,
+        private val forceStatic: Boolean,
+        private val forcePrivate: Boolean = false
+    ) : LightModifierList(declaration.manager, declaration.language) {
+
+        override fun hasModifierProperty(name: String): Boolean {
+
+            if (name != PsiModifier.FINAL || !outerDeclaration.isOrdinaryClass) return hasModifier(name)
+
+            //AllOpen can affect on modality of the member. We ought to check if the extension could override the modality
+            val descriptor = lazy { declaration.resolve() }
+            var modifier = PsiModifier.FINAL
+            project.applyCompilerPlugins {
+                modifier = it.interceptModalityBuilding(declaration, descriptor, modifier)
+            }
+            return modifier == PsiModifier.FINAL
+        }
+
+        private fun hasModifier(name: String): Boolean {
+            if (name == PsiModifier.PUBLIC || name == PsiModifier.PROTECTED || name == PsiModifier.PRIVATE) {
+                if (forcePrivate || declaration.isPrivate() || accessedProperty?.isPrivate() == true) {
+                    return name == PsiModifier.PRIVATE
+                }
+                if (declaration.hasModifier(KtTokens.PROTECTED_KEYWORD) || accessedProperty?.hasModifier(KtTokens.PROTECTED_KEYWORD) == true) {
+                    return name == PsiModifier.PROTECTED
+                }
+
+                if (outerDeclaration.hasModifier(KtTokens.OVERRIDE_KEYWORD)) {
+                    when ((outerDeclaration.resolve() as? CallableDescriptor)?.visibility) {
+                        Visibilities.PUBLIC -> return name == PsiModifier.PUBLIC
+                        Visibilities.PRIVATE -> return name == PsiModifier.PRIVATE
+                        Visibilities.PROTECTED -> return name == PsiModifier.PROTECTED
+                    }
+                }
+
+                return name == PsiModifier.PUBLIC
+            }
+
+            return when (name) {
+                PsiModifier.FINAL -> !containingClass.isInterface && outerDeclaration !is KtConstructor<*> && isFinal(outerDeclaration)
+                PsiModifier.ABSTRACT -> containingClass.isInterface || outerDeclaration.hasModifier(KtTokens.ABSTRACT_KEYWORD)
+                PsiModifier.STATIC -> forceStatic || containingClassIsNamedObject && (outerDeclaration.isJvmStatic(support) || declaration.isJvmStatic(support))
+                PsiModifier.STRICTFP -> declaration is KtFunction && declaration.hasAnnotation(STRICTFP_ANNOTATION_FQ_NAME)
+                PsiModifier.SYNCHRONIZED -> declaration is KtFunction && declaration.hasAnnotation(SYNCHRONIZED_ANNOTATION_FQ_NAME)
+                PsiModifier.NATIVE -> declaration is KtFunction && declaration.hasModifier(EXTERNAL_KEYWORD)
+                else -> false
+            }
+        }
+
+        private fun KtDeclaration.isPrivate() =
+            hasModifier(KtTokens.PRIVATE_KEYWORD) || this is KtConstructor<*> && containingClassIsSealed || isInlineOnly()
+
+        private fun KtDeclaration.isInlineOnly(): Boolean {
+            if (this !is KtCallableDeclaration || !hasModifier(KtTokens.INLINE_KEYWORD)) return false
+            if (annotationEntries.isEmpty()) return false
+
+            val descriptor = resolve() as? CallableMemberDescriptor ?: return false
+
+            return descriptor.isInlineOnly()
+        }
+    }
+
     private fun lightMethod(
         name: String,
         declaration: KtDeclaration,
@@ -248,52 +320,7 @@ internal class UltraLightMembersCreator(
         return LightMethodBuilder(
             manager, language, name,
             LightParameterListBuilder(manager, language),
-            object : LightModifierList(manager, language) {
-                override fun hasModifierProperty(name: String): Boolean {
-                    if (name == PsiModifier.PUBLIC || name == PsiModifier.PROTECTED || name == PsiModifier.PRIVATE) {
-                        if (forcePrivate || declaration.isPrivate() || accessedProperty?.isPrivate() == true) {
-                            return name == PsiModifier.PRIVATE
-                        }
-                        if (declaration.hasModifier(KtTokens.PROTECTED_KEYWORD) || accessedProperty?.hasModifier(KtTokens.PROTECTED_KEYWORD) == true) {
-                            return name == PsiModifier.PROTECTED
-                        }
-
-                        if (outer.hasModifier(KtTokens.OVERRIDE_KEYWORD)) {
-                            when ((outer.resolve() as? CallableDescriptor)?.visibility) {
-                                Visibilities.PUBLIC -> return name == PsiModifier.PUBLIC
-                                Visibilities.PRIVATE -> return name == PsiModifier.PRIVATE
-                                Visibilities.PROTECTED -> return name == PsiModifier.PROTECTED
-                            }
-                        }
-
-                        return name == PsiModifier.PUBLIC
-                    }
-
-                    return when (name) {
-                        PsiModifier.FINAL -> !containingClass.isInterface && outer !is KtConstructor<*> && isFinal(outer)
-                        PsiModifier.ABSTRACT -> containingClass.isInterface || outer.hasModifier(KtTokens.ABSTRACT_KEYWORD)
-                        PsiModifier.STATIC -> forceStatic || containingClassIsNamedObject && (outer.isJvmStatic(support) || declaration.isJvmStatic(
-                            support
-                        ))
-                        PsiModifier.STRICTFP -> declaration is KtFunction && declaration.hasAnnotation(STRICTFP_ANNOTATION_FQ_NAME)
-                        PsiModifier.SYNCHRONIZED -> declaration is KtFunction && declaration.hasAnnotation(SYNCHRONIZED_ANNOTATION_FQ_NAME)
-                        else -> false
-                    }
-                }
-
-                fun KtDeclaration.isPrivate() =
-                    hasModifier(KtTokens.PRIVATE_KEYWORD) ||
-                            this is KtConstructor<*> && containingClassIsSealed || isInlineOnly()
-
-                private fun KtDeclaration.isInlineOnly(): Boolean {
-                    if (this !is KtCallableDeclaration || !hasModifier(KtTokens.INLINE_KEYWORD)) return false
-                    if (annotationEntries.isEmpty()) return false
-
-                    val descriptor = resolve() as? CallableMemberDescriptor ?: return false
-
-                    return descriptor.isInlineOnly()
-                }
-            }
+            UltraLightModifierListForMember(declaration, accessedProperty, outer, forceStatic, forcePrivate)
         ).setConstructor(declaration is KtConstructor<*>)
     }
 
@@ -441,9 +468,21 @@ internal class UltraLightMembersCreator(
             val setterParameter = ktSetter?.parameter
             setterPrototype.addParameter(
                 if (setterParameter != null)
-                    KtUltraLightParameterForSource(propertyName, setterParameter, support, setterWrapper, declaration)
+                    KtUltraLightParameterForSource(
+                        name = setterParameter.name ?: propertyName,
+                        kotlinOrigin = setterParameter,
+                        support = support,
+                        method = setterWrapper,
+                        containingDeclaration = declaration
+                    )
                 else
-                    KtUltraLightParameterForSetterParameter(propertyName, declaration, support, setterWrapper, declaration)
+                    KtUltraLightParameterForSetterParameter(
+                        name = propertyName,
+                        property = declaration,
+                        support = support,
+                        method = setterWrapper,
+                        containingDeclaration = declaration
+                    )
             )
             result.add(setterWrapper)
         }
