@@ -80,10 +80,8 @@ class UnsafeNotNullAssertionOnReallyNullableInspection : AbstractKotlinInspectio
                         baseRawDescriptor as? VariableDescriptorImpl ?: return
                     else
                         baseRawDescriptor as? LocalVariableDescriptor ?: return
-                val declaration = resolvedReference as KtVariableDeclaration
-//                declaration.isVar
                 val fix = ChangeVariableTypeFix.OnType(
-                    declaration,
+                    resolvedReference,
                     TypeUtils.makeNotNullable(basePropertyDescriptor.returnType)
                 )
                 holder.registerProblem(
@@ -96,12 +94,6 @@ class UnsafeNotNullAssertionOnReallyNullableInspection : AbstractKotlinInspectio
             else -> return
         }
     }
-
-    private fun KtProperty.isGlobalVal(): Boolean {
-        val parent = parent
-        return parent is KtClassOrObject || parent is KtClassBody
-    }
-
 
     private class WrapperWithEmbeddedFixBeforeMainFix(
         intention: IntentionAction,
