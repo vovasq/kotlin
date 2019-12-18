@@ -12399,6 +12399,11 @@ public class LocalInspectionTestGenerated extends AbstractLocalInspectionTest {
             runTest("idea/testData/inspectionsLocal/unsafeNotNullAssertionOnReallyNullable/localPropToNotNullable.kt");
         }
 
+        @TestMetadata("localVarProperty.kt")
+        public void testLocalVarProperty() throws Exception {
+            runTest("idea/testData/inspectionsLocal/unsafeNotNullAssertionOnReallyNullable/localVarProperty.kt");
+        }
+
         @TestMetadata("nullableClassProperty.kt")
         public void testNullableClassProperty() throws Exception {
             runTest("idea/testData/inspectionsLocal/unsafeNotNullAssertionOnReallyNullable/nullableClassProperty.kt");
@@ -12407,6 +12412,11 @@ public class LocalInspectionTestGenerated extends AbstractLocalInspectionTest {
         @TestMetadata("nullableParamToSafeCallWithElvis.kt")
         public void testNullableParamToSafeCallWithElvis() throws Exception {
             runTest("idea/testData/inspectionsLocal/unsafeNotNullAssertionOnReallyNullable/nullableParamToSafeCallWithElvis.kt");
+        }
+
+        @TestMetadata("nullableValOrParamInWhenOrIf.kt")
+        public void testNullableValOrParamInWhenOrIf() throws Exception {
+            runTest("idea/testData/inspectionsLocal/unsafeNotNullAssertionOnReallyNullable/nullableValOrParamInWhenOrIf.kt");
         }
     }
 

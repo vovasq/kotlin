@@ -22,12 +22,14 @@ import org.jetbrains.kotlin.idea.core.replaced
 import org.jetbrains.kotlin.idea.quickfix.ChangeParameterTypeFix
 import org.jetbrains.kotlin.idea.quickfix.ChangeVariableTypeFix
 import org.jetbrains.kotlin.idea.quickfix.moveCaretToEnd
+import org.jetbrains.kotlin.idea.refactoring.changeSignature.getDeclarationBody
 import org.jetbrains.kotlin.idea.refactoring.isConstructorDeclaredProperty
 import org.jetbrains.kotlin.idea.references.mainReference
 import org.jetbrains.kotlin.idea.util.application.runWriteAction
 import org.jetbrains.kotlin.lexer.KtTokens
 import org.jetbrains.kotlin.psi.*
 import org.jetbrains.kotlin.psi.psiUtil.createSmartPointer
+import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
 import org.jetbrains.kotlin.psi.psiUtil.isDotReceiver
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.lazy.BodyResolveMode
@@ -37,7 +39,7 @@ class UnsafeNotNullAssertionOnReallyNullableInspection : AbstractKotlinInspectio
 
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         return postfixExpressionVisitor(fun(expression) {
-            if (expression.operationToken != KtTokens.EXCLEXCL) return
+            if (expression.operationToken != KtTokens.EXCLEXCL || isNotApplicable(expression)) return
             val context = expression.analyze(BodyResolveMode.PARTIAL_WITH_DIAGNOSTICS)
             if (context.diagnostics.forElement(expression.operationReference)
                     .any { it.factory == Errors.UNNECESSARY_NOT_NULL_ASSERTION }
@@ -49,6 +51,11 @@ class UnsafeNotNullAssertionOnReallyNullableInspection : AbstractKotlinInspectio
         })
     }
 
+    private fun isNotApplicable(expression: KtPostfixExpression): Boolean =
+        expression.getParentOfType<KtIfExpression>(false, KtParameterList::class.java) != null
+                || expression.getParentOfType<KtWhenExpression>(false, KtParameterList::class.java) != null
+                || expression.getParentOfType<KtSafeQualifiedExpression>(false, KtParameterList::class.java) != null
+
     private fun registerProblemWithFixes(
         base: KtNameReferenceExpression,
         context: BindingContext,
@@ -57,36 +64,40 @@ class UnsafeNotNullAssertionOnReallyNullableInspection : AbstractKotlinInspectio
     ) {
         when (val resolvedReference = base.mainReference.resolve()) {
             is KtParameter -> {
-                if (resolvedReference.isConstructorDeclaredProperty()) return
+                if (resolvedReference.isConstructorDeclaredProperty()
+                    || resolvedReference.isMutable // to not register vars in params actually is paranoid
+                ) return
                 val baseExpressionDescriptor = context[BindingContext.VALUE_PARAMETER, resolvedReference]
                 if (baseExpressionDescriptor is ValueParameterDescriptorImpl) {
                     val fix = ChangeParameterTypeFix(
                         resolvedReference,
                         TypeUtils.makeNotNullable(baseExpressionDescriptor.returnType)
                     )
+//                    resolvedReference.ownerFunction!!.parent.
                     holder.registerProblem(
                         expression, inspectionDescription,
-                        ProblemHighlightType.WEAK_WARNING,
+                        ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
                         WrapperWithEmbeddedFixBeforeMainFix(fix, expression.createSmartPointer(), resolvedReference.containingFile),
                         AddSaveCallAndElvisFix()
                     )
                 }
             }
             is KtProperty -> {
-                if (resolvedReference.isMember) return
+                if (resolvedReference.isVarOrHasGetterOrHasDelegate()) return
                 val baseRawDescriptor = context[BindingContext.REFERENCE_TARGET, base]
                 val basePropertyDescriptor =
-                    if(resolvedReference.isTopLevel && !resolvedReference.isVar)
+                    if (resolvedReference.isTopLevel)
                         baseRawDescriptor as? VariableDescriptorImpl ?: return
                     else
                         baseRawDescriptor as? LocalVariableDescriptor ?: return
+                resolvedReference.getDeclarationBody()?.psiOrParent
                 val fix = ChangeVariableTypeFix.OnType(
                     resolvedReference,
                     TypeUtils.makeNotNullable(basePropertyDescriptor.returnType)
                 )
                 holder.registerProblem(
                     expression, inspectionDescription,
-                    ProblemHighlightType.WEAK_WARNING,
+                    ProblemHighlightType.GENERIC_ERROR_OR_WARNING,
                     WrapperWithEmbeddedFixBeforeMainFix(fix, expression.createSmartPointer(), resolvedReference.containingFile),
                     AddSaveCallAndElvisFix()
                 )
@@ -94,6 +105,8 @@ class UnsafeNotNullAssertionOnReallyNullableInspection : AbstractKotlinInspectio
             else -> return
         }
     }
+
+    private fun KtProperty.isVarOrHasGetterOrHasDelegate() = isMember || isVar || getter != null || hasDelegate()
 
     private class WrapperWithEmbeddedFixBeforeMainFix(
         intention: IntentionAction,
@@ -117,7 +130,6 @@ class UnsafeNotNullAssertionOnReallyNullableInspection : AbstractKotlinInspectio
         const val inspectionDescription: String = "Unsafe using of '!!' operator"
     }
 }
-
 
 private class AddSaveCallAndElvisFix : LocalQuickFix {
     override fun getName() = "Replace !! with safe call and elvis"

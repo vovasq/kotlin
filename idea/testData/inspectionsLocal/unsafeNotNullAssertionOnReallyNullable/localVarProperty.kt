@@ -1,9 +1,9 @@
-// FIX: Change type to 'A'
+// PROBLEM: none
 class A {
     fun unsafeCall() {}
 }
 
 fun unsafe() {
-    val a: A? = A()
+    var a: A? = A()
     a<caret>!!.unsafeCall()
 }
