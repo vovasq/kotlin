@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 import org.jetbrains.kotlin.fir.declarations.FirConstructor
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 
 object DeclarationCheckers {
     val DECLARATIONS: List<FirDeclarationChecker<FirDeclaration>> = listOf(
@@ -19,4 +20,6 @@ object DeclarationCheckers {
     val CONSTRUCTORS: List<FirDeclarationChecker<FirConstructor>> = MEMBER_DECLARATIONS + listOf(
         FirConstructorChecker
     )
+    val CLASS_DECLARATIONS: List<FirDeclarationChecker<FirRegularClass>> = listOf(LeakingThisChecker)
+
 }
