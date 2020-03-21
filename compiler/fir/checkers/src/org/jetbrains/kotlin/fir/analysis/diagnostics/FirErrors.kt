@@ -6,18 +6,17 @@
 package org.jetbrains.kotlin.fir.analysis.diagnostics
 
 import com.intellij.psi.PsiElement
-import jdk.nashorn.internal.runtime.regexp.joni.Warnings
 import org.jetbrains.kotlin.diagnostics.Errors
 import org.jetbrains.kotlin.fir.DeclarationWithRelation
 import org.jetbrains.kotlin.fir.FirEffectiveVisibility
 import org.jetbrains.kotlin.fir.FirSourceElement
-import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
+<<<<<<< HEAD
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
-import org.jetbrains.kotlin.psi.KtParameter
-import org.jetbrains.kotlin.psi.KtTypeReference
+=======
+>>>>>>> d43c780e5de... [FIR] Fixed EXPOSED_RECEIVER_TYPE
 
 object FirErrors {
     val UNRESOLVED_REFERENCE by error1<FirSourceElement, PsiElement, String?>()
@@ -45,7 +44,6 @@ object FirErrors {
     val SUPER_NOT_AVAILABLE by error0<FirSourceElement, PsiElement>()
     val NOT_A_SUPERTYPE by error0<FirSourceElement, PsiElement>()
     val SUPERCLASS_NOT_ACCESSIBLE_FROM_INTERFACE by error0<FirSourceElement, PsiElement>()
-    val ABSTRACT_SUPER_CALL by error0<FirSourceElement, PsiElement>()
 
     val INAPPLICABLE_INFIX_MODIFIER by existing<FirSourceElement, PsiElement, String>(Errors.INAPPLICABLE_INFIX_MODIFIER)
     val CONSTRUCTOR_IN_OBJECT by existing<FirSourceElement, KtDeclaration>(Errors.CONSTRUCTOR_IN_OBJECT)
@@ -54,17 +52,15 @@ object FirErrors {
     val NON_PRIVATE_CONSTRUCTOR_IN_SEALED by existing<FirSourceElement, PsiElement>(Errors.NON_PRIVATE_CONSTRUCTOR_IN_SEALED)
 
     // Exposed visibility group
-    val EXPOSED_TYPEALIAS_EXPANDED_TYPE by error3<FirSourceElement, PsiElement, FirEffectiveVisibility, DeclarationWithRelation, FirEffectiveVisibility>()
-    val EXPOSED_FUNCTION_RETURN_TYPE by error3<FirSourceElement, PsiElement, FirEffectiveVisibility, DeclarationWithRelation, FirEffectiveVisibility>()
-    val EXPOSED_RECEIVER_TYPE by error3<FirSourceElement, KtTypeReference, FirEffectiveVisibility, DeclarationWithRelation, FirEffectiveVisibility>()
-    val EXPOSED_PROPERTY_TYPE by error3<FirSourceElement, PsiElement, FirEffectiveVisibility, DeclarationWithRelation, FirEffectiveVisibility>()
-    val EXPOSED_PARAMETER_TYPE by error3<FirSourceElement, KtParameter, FirEffectiveVisibility, DeclarationWithRelation, FirEffectiveVisibility>()
+    val EXPOSED_TYPEALIAS_EXPANDED_TYPE by error3<FirSourceElement, FirEffectiveVisibility, DeclarationWithRelation, FirEffectiveVisibility>()
+    val EXPOSED_FUNCTION_RETURN_TYPE by error3<FirSourceElement, FirEffectiveVisibility, DeclarationWithRelation, FirEffectiveVisibility>()
+    val EXPOSED_RECEIVER_TYPE by error3<FirSourceElement, FirEffectiveVisibility, DeclarationWithRelation, FirEffectiveVisibility>()
+    val EXPOSED_PROPERTY_TYPE by error3<FirSourceElement, FirEffectiveVisibility, DeclarationWithRelation, FirEffectiveVisibility>()
+    val EXPOSED_PARAMETER_TYPE by error3<FirSourceElement, FirEffectiveVisibility, DeclarationWithRelation, FirEffectiveVisibility>()
 
     val REPEATED_MODIFIER by error1<FirSourceElement, PsiElement, KtModifierKeywordToken>()
     val REDUNDANT_MODIFIER by error2<FirSourceElement, PsiElement, KtModifierKeywordToken, KtModifierKeywordToken>()
     val DEPRECATED_MODIFIER_PAIR by error2<FirSourceElement, PsiElement, KtModifierKeywordToken, KtModifierKeywordToken>()
     val INCOMPATIBLE_MODIFIERS by error2<FirSourceElement, PsiElement, KtModifierKeywordToken, KtModifierKeywordToken>()
-
-    val LEAKING_THIS_IN_CONSTRUCTOR by existing<FirSourceElement, PsiElement, String>(Errors.POSSIBLE_LEAKING_THIS_IN_CONSTRUCTOR)
 }
 
