@@ -19,7 +19,6 @@ import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
 import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.KtSuperTypeListEntry
 import org.jetbrains.kotlin.psi.KtTypeReference
-
 object FirErrors {
     val UNRESOLVED_REFERENCE by error1<FirSourceElement, PsiElement, String?>()
     val INAPPLICABLE_CANDIDATE by error1<FirSourceElement, PsiElement, Collection<AbstractFirBasedSymbol<*>>>()
