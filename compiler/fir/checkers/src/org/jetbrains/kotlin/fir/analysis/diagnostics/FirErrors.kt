@@ -14,11 +14,8 @@ import org.jetbrains.kotlin.fir.FirSourceElement
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
 import org.jetbrains.kotlin.fir.types.ConeKotlinType
-<<<<<<< HEAD
 import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.lexer.KtModifierKeywordToken
-=======
->>>>>>> d43c780e5de... [FIR] Fixed EXPOSED_RECEIVER_TYPE
 
 object FirErrors {
     val UNRESOLVED_REFERENCE by error1<FirSourceElement, PsiElement, String?>()
@@ -67,4 +64,5 @@ object FirErrors {
 
     val LEAKING_THIS_IN_CONSTRUCTOR by existing<FirSourceElement, PsiElement, String>(Errors.POSSIBLE_LEAKING_THIS_IN_CONSTRUCTOR)
 }
+
 
