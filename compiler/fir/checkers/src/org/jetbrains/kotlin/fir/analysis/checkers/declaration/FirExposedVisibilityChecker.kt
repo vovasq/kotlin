@@ -5,20 +5,16 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 
-import com.intellij.lang.LighterASTNode
-import com.intellij.openapi.util.Ref
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiNameIdentifierOwner
+import org.jetbrains.kotlin.diagnostics.DiagnosticFactory3
 import org.jetbrains.kotlin.fir.*
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
-import org.jetbrains.kotlin.fir.analysis.diagnostics.FirDiagnosticFactory3
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
+import org.jetbrains.kotlin.fir.analysis.diagnostics.onSource
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.types.ConeKotlinType
-import org.jetbrains.kotlin.fir.types.FirTypeRef
+import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.coneTypeSafe
-import org.jetbrains.kotlin.lexer.KtTokens
 
 object FirExposedVisibilityChecker : FirDeclarationChecker<FirMemberDeclaration>() {
     override fun check(declaration: FirMemberDeclaration, context: CheckerContext, reporter: DiagnosticReporter) {
@@ -34,111 +30,60 @@ object FirExposedVisibilityChecker : FirDeclarationChecker<FirMemberDeclaration>
         val typeAliasVisibility = declaration.firEffectiveVisibility(declaration.session)
         val restricting = expandedType?.leastPermissiveDescriptor(declaration.session, typeAliasVisibility)
         if (restricting != null) {
-            reporter.reportExposure(
-                FirErrors.EXPOSED_TYPEALIAS_EXPANDED_TYPE,
-                restricting,
-                typeAliasVisibility,
-                restricting.firEffectiveVisibility(declaration.session),
-                declaration.source?.getIdentifierSource() ?: declaration.source
-            )
+            reporter.reportExposure(FirErrors.EXPOSED_TYPEALIAS_EXPANDED_TYPE, declaration, restricting)
         }
     }
 
     private fun checkFunction(declaration: FirFunction<*>, context: CheckerContext, reporter: DiagnosticReporter) {
         val functionVisibility = (declaration as FirMemberDeclaration).firEffectiveVisibility(declaration.session)
         if (declaration !is FirConstructor) {
-            val restricting = declaration.returnTypeRef.coneTypeSafe<ConeKotlinType>()
+            val restricting = declaration.returnTypeRef.coneTypeSafe<ConeClassLikeType>()
                 ?.leastPermissiveDescriptor(declaration.session, functionVisibility)
             if (restricting != null) {
-                reporter.reportExposure(
-                    FirErrors.EXPOSED_FUNCTION_RETURN_TYPE,
-                    restricting,
-                    functionVisibility,
-                    restricting.firEffectiveVisibility(declaration.session),
-                    declaration.source?.getIdentifierSource() ?: declaration.source
-                )
+                reporter.reportExposure(FirErrors.EXPOSED_FUNCTION_RETURN_TYPE, declaration, restricting)
             }
         }
-        declaration.valueParameters.forEachIndexed { i, valueParameter ->
-            if (i < declaration.valueParameters.size) {
-                val restricting =
-                    valueParameter.returnTypeRef.coneTypeSafe<ConeKotlinType>()
-                        ?.leastPermissiveDescriptor(declaration.session, functionVisibility)
-                if (restricting != null) {
-                    reporter.reportExposure(
-                        FirErrors.EXPOSED_PARAMETER_TYPE,
-                        restricting,
-                        functionVisibility,
-                        restricting.firEffectiveVisibility(declaration.session),
-                        valueParameter.source
-                    )
-                }
-            }
-        }
-        checkMemberReceiver(declaration.receiverTypeRef, declaration as? FirCallableMemberDeclaration<*>, reporter)
     }
 
     private fun checkProperty(declaration: FirProperty, context: CheckerContext, reporter: DiagnosticReporter) {
         val propertyVisibility = declaration.firEffectiveVisibility(declaration.session)
         val restricting =
-            declaration.returnTypeRef.coneTypeSafe<ConeKotlinType>()?.leastPermissiveDescriptor(declaration.session, propertyVisibility)
+            declaration.returnTypeRef.coneTypeSafe<ConeClassLikeType>()?.leastPermissiveDescriptor(declaration.session, propertyVisibility)
         if (restricting != null) {
-            reporter.reportExposure(
-                FirErrors.EXPOSED_PROPERTY_TYPE,
-                restricting,
-                propertyVisibility,
-                restricting.firEffectiveVisibility(declaration.session),
-                declaration.source?.getIdentifierSource() ?: declaration.source
-            )
+            reporter.reportExposure(FirErrors.EXPOSED_PROPERTY_TYPE, declaration, restricting)
         }
-        checkMemberReceiver(declaration.receiverTypeRef, declaration, reporter)
+        checkMemberReceiver(declaration.receiverTypeRef?.coneTypeSafe(), declaration, reporter)
     }
 
     private fun checkMemberReceiver(
-        typeRef: FirTypeRef?,
-        memberDeclaration: FirCallableMemberDeclaration<*>?, reporter: DiagnosticReporter
+        typeRef: ConeClassLikeType?,
+        memberDeclaration: FirCallableMemberDeclaration<*>, reporter: DiagnosticReporter
     ) {
-        if (typeRef == null || memberDeclaration == null) return
-        val receiverParameterType = typeRef.coneTypeSafe<ConeKotlinType>()
-        val memberVisibility = memberDeclaration.firEffectiveVisibility(memberDeclaration.session)
+        if (typeRef == null) return
+        val receiverParameterType = memberDeclaration.receiverTypeRef?.coneTypeSafe<ConeClassLikeType>()
+        val memberVisibility = memberDeclaration.effectiveVisibility
         val restricting = receiverParameterType?.leastPermissiveDescriptor(memberDeclaration.session, memberVisibility)
         if (restricting != null) {
-            reporter.reportExposure(
-                FirErrors.EXPOSED_RECEIVER_TYPE,
-                restricting,
-                memberVisibility,
-                restricting.firEffectiveVisibility(memberDeclaration.session),
-                typeRef.source
-            )
+            reporter.reportExposure(FirErrors.EXPOSED_RECEIVER_TYPE, memberDeclaration, restricting)
         }
     }
 
-    private inline fun <reified E : FirSourceElement, P : PsiElement> DiagnosticReporter.reportExposure(
-        error: FirDiagnosticFactory3<E, P, FirEffectiveVisibility, DeclarationWithRelation, FirEffectiveVisibility>,
+    private inline fun <E : FirMemberDeclaration, reified P : PsiElement> DiagnosticReporter.reportExposure(
+        er: DiagnosticFactory3<P, FirEffectiveVisibility, DeclarationWithRelation, FirEffectiveVisibility>,
+        element: E,
         restrictingDeclaration: DeclarationWithRelation,
-        elementVisibility: FirEffectiveVisibility,
-        restrictingVisibility: FirEffectiveVisibility,
-        source: FirSourceElement?
+        elementVisibility: FirEffectiveVisibility = element.effectiveVisibility,
+        source: FirSourceElement? = element.source
     ) {
         source?.let {
             report(
-                error.on(
-                    it as E,
+                er.onSource(
+                    it,
                     elementVisibility,
                     restrictingDeclaration,
-                    restrictingVisibility
+                    restrictingDeclaration.firEffectiveVisibility(element.session)
                 )
             )
-        }
-    }
-
-    private fun FirSourceElement.getIdentifierSource() = when (this) {
-        is FirPsiSourceElement<*> -> (this.psi as? PsiNameIdentifierOwner)?.nameIdentifier?.toFirPsiSourceElement()
-        is FirLightSourceElement -> {
-            val kidsRef = Ref<Array<LighterASTNode?>>()
-            this.tree.getChildren(this.element, kidsRef)
-            val identifier = kidsRef.get().find { it?.tokenType == KtTokens.IDENTIFIER }
-            identifier?.toFirLightSourceElement(this.tree.getStartOffset(identifier), this.tree.getEndOffset(identifier), this.tree)
         }
     }
 }

@@ -68,4 +68,3 @@ object FirErrors {
     val LEAKING_THIS_IN_CONSTRUCTOR by existing<FirSourceElement, PsiElement, String>(Errors.POSSIBLE_LEAKING_THIS_IN_CONSTRUCTOR)
 }
 
-
