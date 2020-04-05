@@ -1,9 +1,16 @@
-
 internal class ServiceInfo(val port: Int, val host: String, val id: String)
 
 internal class SystemConfig {
     val firstServiceInfo: ServiceInfo
     val secondServiceInfo: ServiceInfo
+
+    init {
+        secondServiceInfo = registerSecondService()
+        //        uuups
+        saveSystemConfig(this)
+        firstServiceInfo = registerFirstService()
+    }
+
     fun saveSystemConfig(config: SystemConfig) {
         val first = config.firstServiceInfo
         // some stuff with database NPE should occur...
@@ -26,12 +33,5 @@ internal class SystemConfig {
             val config = SystemConfig()
             //        some code with config ....
         }
-    }
-
-    init {
-        secondServiceInfo = registerSecondService()
-        //        uuups
-        saveSystemConfig(this)
-        firstServiceInfo = registerFirstService()
     }
 }

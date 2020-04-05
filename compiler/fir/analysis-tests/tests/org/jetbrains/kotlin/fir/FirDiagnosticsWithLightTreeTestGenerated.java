@@ -1,3 +1,4 @@
+
 /*
  * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
@@ -778,6 +779,54 @@ public class FirDiagnosticsWithLightTreeTestGenerated extends AbstractFirDiagnos
         @TestMetadata("superclassNotAccessibleFromInterface.kt")
         public void testSuperclassNotAccessibleFromInterface() throws Exception {
             runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/superclassNotAccessibleFromInterface.kt");
+        }
+
+        @TestMetadata("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis")
+        @TestDataPath("$PROJECT_ROOT")
+        @RunWith(JUnit3RunnerWithInners.class)
+        public static class LeakingThis extends AbstractFirDiagnosticsWithLightTreeTest {
+            private void runTest(String testDataFilePath) throws Exception {
+                KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+            }
+
+            public void testAllFilesPresentInLeakingThis() throws Exception {
+                KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+            }
+
+            @TestMetadata("leak01.kt")
+            public void testLeak01() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/leak01.kt");
+            }
+
+            @TestMetadata("leak02.kt")
+            public void testLeak02() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/leak02.kt");
+            }
+
+            @TestMetadata("leak03.kt")
+            public void testLeak03() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/leak03.kt");
+            }
+
+            @TestMetadata("saveThisAndPassItAsArg.kt")
+            public void testSaveThisAndPassItAsArg() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/saveThisAndPassItAsArg.kt");
+            }
+
+            @TestMetadata("thisAsArgInConstructor.kt")
+            public void testThisAsArgInConstructor() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/thisAsArgInConstructor.kt");
+            }
+
+            @TestMetadata("thisAsArgInInit.kt")
+            public void testThisAsArgInInit() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/thisAsArgInInit.kt");
+            }
+
+            @TestMetadata("thisClassType.kt")
+            public void testThisClassType() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/thisClassType.kt");
+            }
         }
     }
 
