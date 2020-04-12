@@ -1,0 +1,17 @@
+FILE: propertyInitByFunction2.kt
+    public final class A2 : R|kotlin/Any| {
+        public constructor(): R|com/vovas/examples/test/positive/A2| {
+            super<R|kotlin/Any|>()
+        }
+
+        private final val p1: R|kotlin/Int| = this@R|com/vovas/examples/test/positive/A2|.R|com/vovas/examples/test/positive/A2.initP1|()
+            private get(): R|kotlin/Int|
+
+        private final val p2: R|kotlin/String| = String(p2)
+            private get(): R|kotlin/String|
+
+        private final fun initP1(): R|kotlin/Int| {
+            ^initP1 this@R|com/vovas/examples/test/positive/A2|.R|com/vovas/examples/test/positive/A2.p2|.R|kotlin/String.length|
+        }
+
+    }

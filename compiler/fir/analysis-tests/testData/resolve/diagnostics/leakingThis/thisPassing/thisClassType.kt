@@ -8,7 +8,7 @@ open class Foo {
 }
 
 fun test(c: KClass<out Foo>) {
-//     println(c)
+
 }
 
 class Bar : Foo()

@@ -1,0 +1,23 @@
+FILE: initSectionFunCall1.kt
+    public final class C1N : R|kotlin/Any| {
+        public constructor(): R|C1N| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val p1: R|kotlin/Int|
+            public get(): R|kotlin/Int|
+
+        public final var p2: R|kotlin/String|
+            public get(): R|kotlin/String|
+            public set(value: R|kotlin/String|): R|kotlin/Unit|
+
+        init {
+            this@R|/C1N|.R|/C1N.p2| = String(p2)
+            this@R|/C1N|.R|/C1N.p1| = this@R|/C1N|.R|/C1N.initP1|()
+        }
+
+        private final fun initP1(): R|kotlin/Int| {
+            ^initP1 this@R|/C1N|.R|/C1N.p2|.R|kotlin/String.length|
+        }
+
+    }

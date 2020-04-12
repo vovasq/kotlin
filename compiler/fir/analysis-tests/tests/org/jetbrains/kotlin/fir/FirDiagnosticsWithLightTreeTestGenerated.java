@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2010-2020 JetBrains s.r.o. and Kotlin Programming Language contributors.
  * Use of this source code is governed by the Apache 2.0 license that can be found in the license/LICENSE.txt file.
@@ -826,39 +825,141 @@ public class FirDiagnosticsWithLightTreeTestGenerated extends AbstractFirDiagnos
                 KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
             }
 
-            @TestMetadata("leak01.kt")
-            public void testLeak01() throws Exception {
-                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/leak01.kt");
+            @TestMetadata("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly")
+            @TestDataPath("$PROJECT_ROOT")
+            @RunWith(JUnit3RunnerWithInners.class)
+            public static class ClassMembersOnly extends AbstractFirDiagnosticsWithLightTreeTest {
+                private void runTest(String testDataFilePath) throws Exception {
+                    KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+                }
+
+                public void testAllFilesPresentInClassMembersOnly() throws Exception {
+                    KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+                }
+
+                @TestMetadata("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/negative")
+                @TestDataPath("$PROJECT_ROOT")
+                @RunWith(JUnit3RunnerWithInners.class)
+                public static class Negative extends AbstractFirDiagnosticsWithLightTreeTest {
+                    private void runTest(String testDataFilePath) throws Exception {
+                        KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+                    }
+
+                    public void testAllFilesPresentInNegative() throws Exception {
+                        KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/negative"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+                    }
+
+                    @TestMetadata("initSectionFunCall1.kt")
+                    public void testInitSectionFunCall1() throws Exception {
+                        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/negative/initSectionFunCall1.kt");
+                    }
+
+                    @TestMetadata("initSectionFunCall2.kt")
+                    public void testInitSectionFunCall2() throws Exception {
+                        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/negative/initSectionFunCall2.kt");
+                    }
+
+                    @TestMetadata("initSectionFunCallComplex.kt")
+                    public void testInitSectionFunCallComplex() throws Exception {
+                        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/negative/initSectionFunCallComplex.kt");
+                    }
+
+                    @TestMetadata("initSectionFunCallPropertyAsParam.kt")
+                    public void testInitSectionFunCallPropertyAsParam() throws Exception {
+                        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/negative/initSectionFunCallPropertyAsParam.kt");
+                    }
+
+                    @TestMetadata("multipleInitSectionsFunCall.kt")
+                    public void testMultipleInitSectionsFunCall() throws Exception {
+                        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/negative/multipleInitSectionsFunCall.kt");
+                    }
+
+                    @TestMetadata("propertyInitByFunction1.kt")
+                    public void testPropertyInitByFunction1() throws Exception {
+                        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/negative/propertyInitByFunction1.kt");
+                    }
+                }
+
+                @TestMetadata("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/positive")
+                @TestDataPath("$PROJECT_ROOT")
+                @RunWith(JUnit3RunnerWithInners.class)
+                public static class Positive extends AbstractFirDiagnosticsWithLightTreeTest {
+                    private void runTest(String testDataFilePath) throws Exception {
+                        KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+                    }
+
+                    public void testAllFilesPresentInPositive() throws Exception {
+                        KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/positive"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+                    }
+
+                    @TestMetadata("initSectionFunCall.kt")
+                    public void testInitSectionFunCall() throws Exception {
+                        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/positive/initSectionFunCall.kt");
+                    }
+
+                    @TestMetadata("initSectionFunCallComplex.kt")
+                    public void testInitSectionFunCallComplex() throws Exception {
+                        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/positive/initSectionFunCallComplex.kt");
+                    }
+
+                    @TestMetadata("initSectionFunCallPropertyAsParam.kt")
+                    public void testInitSectionFunCallPropertyAsParam() throws Exception {
+                        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/positive/initSectionFunCallPropertyAsParam.kt");
+                    }
+
+                    @TestMetadata("multipleInitSectionsFunCall.kt")
+                    public void testMultipleInitSectionsFunCall() throws Exception {
+                        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/positive/multipleInitSectionsFunCall.kt");
+                    }
+
+                    @TestMetadata("propertyInitByFunction1.kt")
+                    public void testPropertyInitByFunction1() throws Exception {
+                        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/positive/propertyInitByFunction1.kt");
+                    }
+
+                    @TestMetadata("propertyInitByFunction2.kt")
+                    public void testPropertyInitByFunction2() throws Exception {
+                        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/positive/propertyInitByFunction2.kt");
+                    }
+
+                    @TestMetadata("propertyInitByFunctoinWithGetter.kt")
+                    public void testPropertyInitByFunctoinWithGetter() throws Exception {
+                        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/positive/propertyInitByFunctoinWithGetter.kt");
+                    }
+                }
             }
 
-            @TestMetadata("leak02.kt")
-            public void testLeak02() throws Exception {
-                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/leak02.kt");
-            }
+            @TestMetadata("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/thisPassing")
+            @TestDataPath("$PROJECT_ROOT")
+            @RunWith(JUnit3RunnerWithInners.class)
+            public static class ThisPassing extends AbstractFirDiagnosticsWithLightTreeTest {
+                private void runTest(String testDataFilePath) throws Exception {
+                    KotlinTestUtils.runTest(this::doTest, this, testDataFilePath);
+                }
 
-            @TestMetadata("leak03.kt")
-            public void testLeak03() throws Exception {
-                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/leak03.kt");
-            }
+                public void testAllFilesPresentInThisPassing() throws Exception {
+                    KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/thisPassing"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
+                }
 
-            @TestMetadata("saveThisAndPassItAsArg.kt")
-            public void testSaveThisAndPassItAsArg() throws Exception {
-                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/saveThisAndPassItAsArg.kt");
-            }
+                @TestMetadata("saveThisAndPassItAsArg.kt")
+                public void testSaveThisAndPassItAsArg() throws Exception {
+                    runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/thisPassing/saveThisAndPassItAsArg.kt");
+                }
 
-            @TestMetadata("thisAsArgInConstructor.kt")
-            public void testThisAsArgInConstructor() throws Exception {
-                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/thisAsArgInConstructor.kt");
-            }
+                @TestMetadata("thisAsArgInConstructor.kt")
+                public void testThisAsArgInConstructor() throws Exception {
+                    runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/thisPassing/thisAsArgInConstructor.kt");
+                }
 
-            @TestMetadata("thisAsArgInInit.kt")
-            public void testThisAsArgInInit() throws Exception {
-                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/thisAsArgInInit.kt");
-            }
+                @TestMetadata("thisAsArgInInit.kt")
+                public void testThisAsArgInInit() throws Exception {
+                    runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/thisPassing/thisAsArgInInit.kt");
+                }
 
-            @TestMetadata("thisClassType.kt")
-            public void testThisClassType() throws Exception {
-                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/thisClassType.kt");
+                @TestMetadata("thisClassType.kt")
+                public void testThisClassType() throws Exception {
+                    runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/thisPassing/thisClassType.kt");
+                }
             }
         }
     }

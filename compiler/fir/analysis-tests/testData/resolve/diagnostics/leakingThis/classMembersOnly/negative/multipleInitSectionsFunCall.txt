@@ -1,0 +1,33 @@
+FILE: multipleInitSectionsFunCall.kt
+    public final class D : R|kotlin/Any| {
+        public constructor(): R|D| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val p1: R|kotlin/Int|
+            public get(): R|kotlin/Int|
+
+        public final val p2: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+        public final val p3: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+        public final val p4: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+        init {
+            this@R|/D|.R|/D.p2| = String(p2STr)
+        }
+
+        private final fun initP1(): R|kotlin/Int| {
+            ^initP1 this@R|/D|.R|/D.p4|.R|kotlin/String.length|
+        }
+
+        init {
+            this@R|/D|.R|/D.p3| = String(p3potri)
+            this@R|/D|.R|/D.p4| = String(ooopsss)
+            this@R|/D|.R|/D.p1| = this@R|/D|.R|/D.initP1|()
+        }
+
+    }

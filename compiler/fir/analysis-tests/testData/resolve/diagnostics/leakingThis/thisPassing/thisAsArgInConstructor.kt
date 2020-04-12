@@ -1,3 +1,5 @@
+// PROBLEM: none
+
 class A {
 
 //    init {
@@ -6,7 +8,7 @@ class A {
 //    }
 
     constructor() {
-        <!POSSIBLE_LEAKING_THIS_IN_CONSTRUCTOR!>foo(this)<!>
+        foo(this)
     }
 
     fun foo(a: A) {
