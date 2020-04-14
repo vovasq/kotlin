@@ -1797,6 +1797,11 @@ public class FirDiagnosticsTestGenerated extends AbstractFirDiagnosticsTest {
             KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/references"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
         }
 
+        @TestMetadata("integerLiteralInLhs.kt")
+        public void testIntegerLiteralInLhs() throws Exception {
+            runTest("compiler/fir/analysis-tests/testData/resolve/references/integerLiteralInLhs.kt");
+        }
+
         @TestMetadata("referenceToExtension.kt")
         public void testReferenceToExtension() throws Exception {
             runTest("compiler/fir/analysis-tests/testData/resolve/references/referenceToExtension.kt");
