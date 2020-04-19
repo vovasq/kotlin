@@ -907,9 +907,19 @@ public class FirDiagnosticsWithLightTreeTestGenerated extends AbstractFirDiagnos
                         runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/positive/initSectionFunCallPropertyAsParam.kt");
                     }
 
+                    @TestMetadata("initWithParamFromPrimaryConstructor.kt")
+                    public void testInitWithParamFromPrimaryConstructor() throws Exception {
+                        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/positive/initWithParamFromPrimaryConstructor.kt");
+                    }
+
                     @TestMetadata("multipleInitSectionsFunCall.kt")
                     public void testMultipleInitSectionsFunCall() throws Exception {
                         runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/positive/multipleInitSectionsFunCall.kt");
+                    }
+
+                    @TestMetadata("multipleInitSectionsShuffleDecl.kt")
+                    public void testMultipleInitSectionsShuffleDecl() throws Exception {
+                        runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/classMembersOnly/positive/multipleInitSectionsShuffleDecl.kt");
                     }
 
                     @TestMetadata("propertyInitByFunction1.kt")
