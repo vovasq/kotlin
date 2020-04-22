@@ -5,12 +5,16 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak
 
+import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.references.FirReference
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.name.ClassId
 
+
+// always contains at least kotlin/Any as a parent
+internal fun FirRegularClass.hasClassSomeParents() = this.superTypeRefs.size > 1
 
 internal val FirReference.resolvedSymbolAsProperty: FirPropertySymbol?
     get() = (this as? FirResolvedNamedReference)?.resolvedSymbol as? FirPropertySymbol
@@ -30,3 +34,4 @@ internal fun FirReference.isCalleeReferenceMemberOfTheClass(expectedClassId: Cla
         return true
     return false
 }
+

@@ -14,10 +14,6 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.declarations.FirConstructor
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.modality
-import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.FunctionCallNode
-import org.jetbrains.kotlin.fir.resolve.dfa.controlFlowGraph
-import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 
 
 object LeakingThisChecker : FirDeclarationChecker<FirRegularClass>() {
@@ -42,32 +38,32 @@ object LeakingThisChecker : FirDeclarationChecker<FirRegularClass>() {
 
     }
 
-    private fun collectDataForSimpleClassAnalysis(classDeclaration: FirRegularClass): ClassDeclarationContext =
-        ClassWithOutSuperDeclarationContext(
+    private fun collectDataForSimpleClassAnalysis(classDeclaration: FirRegularClass): BaseClassMembersContext =
+        BaseClassMembersContext(
             classDeclaration
         )
 
-    private fun runCheck(classDeclarationContext: ClassDeclarationContext, reporter: DiagnosticReporter) {
-        if (classDeclarationContext.isClassNotRelevantForChecker)
+    private fun runCheck(classMembersContext: BaseClassMembersContext, reporter: DiagnosticReporter) {
+        if (classMembersContext.isClassNotRelevantForChecker)
             return
 
     }
 
     private fun checkConstructor(
         constructorDecl: FirConstructor,
-        classDeclarationContext: ClassDeclarationContext,
+        classMembersContext: BaseClassMembersContext,
         reporter: DiagnosticReporter
     ) {
         buildLatticeAndComputeFixedPoint(
-            classDeclarationContext
+            classMembersContext
         )
         reporter.report(constructorDecl.source)
     }
 
     private fun buildLatticeAndComputeFixedPoint(
-        classDeclarationContext: ClassDeclarationContext,
+        classMembersContext: BaseClassMembersContext,
     ) {
-        if (!classDeclarationContext.isCfgAvailable)
+        if (!classMembersContext.isCfgAvailable)
             return
 
     }
@@ -76,7 +72,5 @@ object LeakingThisChecker : FirDeclarationChecker<FirRegularClass>() {
         source?.let { report(FirErrors.LEAKING_THIS_IN_CONSTRUCTOR.on(it, "Possible leaking this in constructor")) }
     }
 
-    // always contains at least kotlin/Any as a parent
-    private fun FirRegularClass.hasClassSomeParents() = this.superTypeRefs.size > 1
 }
 

@@ -12,21 +12,28 @@ import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
-import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
+import org.jetbrains.kotlin.fir.resolve.dfa.controlFlowGraph
+import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 
 
-// TODO: rename class:))
-internal class ClassWithOutSuperDeclarationContext(override val classDeclaration: FirRegularClass) : ClassDeclarationContext() {
-    override val propsDeclList = mutableListOf<FirProperty>()
-    override val anonymousInitializer = mutableListOf<FirAnonymousInitializer>()
-    override val isClassNotRelevantForChecker: Boolean
+internal class BaseClassMembersContext(private val classDeclaration: FirRegularClass) {
+    val isClassNotRelevantForChecker: Boolean
         get() = propsDeclList.isEmpty()
 
-    override val classInitStates = mutableListOf<ClassInitStateForNode>()
+    val isCfgAvailable: Boolean
+        get() = classDeclaration.controlFlowGraphReference.controlFlowGraph != null
 
-    val initializedProps = mutableListOf<FirVariableSymbol<*>>()
+    private val classCfg: ControlFlowGraph
+        get() = classDeclaration.controlFlowGraphReference.controlFlowGraph!!
+
+    private val classInitStates = mutableListOf<ClassInitStateForNode>()
+
+    private val initializedProps = mutableListOf<FirVariableSymbol<*>>()
+
+    private val propsDeclList = mutableListOf<FirProperty>()
+    private val anonymousInitializer = mutableListOf<FirAnonymousInitializer>()
 
     init {
         if (isCfgAvailable)
@@ -41,7 +48,6 @@ internal class ClassWithOutSuperDeclarationContext(override val classDeclaration
         classInitStates.addAll(visitor.initStates)
         initializedProps.addAll(visitor.initializedProps)
     }
-
 
     private class ClassControlFlowGraphVisitor(
         private val classDeclaration: FirRegularClass,
@@ -64,7 +70,7 @@ internal class ClassWithOutSuperDeclarationContext(override val classDeclaration
         }
 
         override fun visitFunctionCallNode(node: FunctionCallNode) {
-            val accessedMembers = mutableListOf<AbstractFirBasedSymbol<*>>()
+            val accessedMembers = mutableListOf<FirCallableSymbol<*>>()
             val accessedProperties = mutableListOf<FirVariableSymbol<*>>()
             if (node.fir.calleeReference.isCalleeReferenceMemberOfTheClass(classDeclaration.symbol.classId))
                 accessedMembers.add(node.fir.calleeReference.resolvedSymbolAsNamedFunction!!)
@@ -86,10 +92,11 @@ internal class ClassWithOutSuperDeclarationContext(override val classDeclaration
         }
 
         override fun visitQualifiedAccessNode(node: QualifiedAccessNode) {
-            val accessedMembers = mutableListOf<AbstractFirBasedSymbol<*>>()
+            val accessedMembers = mutableListOf<FirCallableSymbol<*>>()
             val accessedProperties = mutableListOf<FirVariableSymbol<*>>()
             if (node.fir.calleeReference.isCalleeReferenceMemberOfTheClass(classDeclaration.symbol.classId)) {
                 accessedMembers.add(node.fir.calleeReference.resolvedSymbolAsProperty!!)
+                accessedProperties.add(node.fir.calleeReference.resolvedSymbolAsProperty!!)
             }
             val initState = if (!accessedProperties.all { it in initializedProps }) InitState.INIT_FAIL else InitState.INIT_OK
             initStates.add(
@@ -98,7 +105,7 @@ internal class ClassWithOutSuperDeclarationContext(override val classDeclaration
         }
 
         override fun visitVariableAssignmentNode(node: VariableAssignmentNode) {
-            val accessedMembers = mutableListOf<AbstractFirBasedSymbol<*>>()
+            val accessedMembers = mutableListOf<FirCallableSymbol<*>>()
             val accessedProperties = mutableListOf<FirVariableSymbol<*>>()
 
             if (node.fir.lValue.resolvedSymbolAsProperty?.callableId?.classId == classDeclaration.symbol.classId) {
@@ -119,6 +126,9 @@ internal class ClassWithOutSuperDeclarationContext(override val classDeclaration
                 visitNode(node)
 
         }
+
+//        TODO: lambda
+
     }
 
 }

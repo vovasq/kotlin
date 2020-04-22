@@ -6,12 +6,12 @@
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak
 
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.CFGNode
-import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 
 internal class ClassInitStateForNode(
     val cfgNode: CFGNode<*>,
-    val accessedMembers: List<AbstractFirBasedSymbol<*>>,
+    val accessedMembers: List<FirCallableSymbol<*>>,
     val accessedProperties: List<FirVariableSymbol<*>>,
     val initializedProperties: List<FirVariableSymbol<*>>,
     val state: InitState
