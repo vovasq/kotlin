@@ -5,9 +5,11 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak
 
+import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.references.FirReference
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
+import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.name.ClassId
@@ -22,16 +24,23 @@ internal val FirReference.resolvedSymbolAsProperty: FirPropertySymbol?
 internal val FirReference.resolvedSymbolAsNamedFunction: FirNamedFunctionSymbol?
     get() = (this as? FirResolvedNamedReference)?.resolvedSymbol as? FirNamedFunctionSymbol
 
-internal fun FirReference.isCalleeReferenceMemberOfTheClass(expectedClassId: ClassId): Boolean {
-    val resolvedSymbol = when {
+internal val FirReference.resolvedSymbolAsCallable: FirCallableSymbol<*>?
+    get() = when {
         (resolvedSymbolAsNamedFunction != null) -> resolvedSymbolAsNamedFunction
         (resolvedSymbolAsProperty != null) -> resolvedSymbolAsProperty
-        else -> return false
+        else -> null
     }
-    val classId = resolvedSymbol?.callableId?.classId
+
+internal fun FirReference.isMemberOfTheClass(expectedClassId: ClassId): Boolean {
+    val resolvedSymbol = resolvedSymbolAsCallable ?: return false
+    val classId = resolvedSymbol.callableId.classId
     // call member - fun in constructor
     if (classId != null && classId == expectedClassId)
         return true
     return false
 }
+
+
+internal val FirProperty.isClassPropertyWithInitializer: Boolean
+    get() = !this.isLocal && this.initializer != null
 

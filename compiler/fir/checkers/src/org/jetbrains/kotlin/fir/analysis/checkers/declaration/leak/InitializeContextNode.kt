@@ -9,19 +9,25 @@ import org.jetbrains.kotlin.fir.resolve.dfa.cfg.CFGNode
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 
-internal class ClassInitStateForNode(
+internal class InitializeContextNode(
     val cfgNode: CFGNode<*>,
     val accessedMembers: List<FirCallableSymbol<*>>,
     val accessedProperties: List<FirVariableSymbol<*>>,
-    val initializedProperties: List<FirVariableSymbol<*>>,
-    val state: InitState
+    val initializedProperties: MutableList<FirVariableSymbol<*>>,
+    var affectedNodes: MutableList<CFGNode<*>>, // TODO: change to InitStateNodeContext
+    var affectingNodes: MutableList<CFGNode<*>>, // TODO: change to InitStateNodeContext
+    var state: InitState
 )
 
 internal enum class InitState {
+    ASSINGMENT_OR_INITIALIZER,
+    QUAILIFIED_ACCESS,
+
     INIT_FAIL,
     INIT_OK,
     NOT_AFFECTED,
-    POSSIBLE_WEAK,
+    RESOLVABLE_MEMBER_CALL,
+    UNRESOLVABLE_FUN_CALL,
     UNRESOLVABLE,
     FULL_INIT_OK
 }

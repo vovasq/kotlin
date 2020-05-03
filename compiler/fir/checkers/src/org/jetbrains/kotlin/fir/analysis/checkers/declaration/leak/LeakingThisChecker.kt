@@ -14,6 +14,10 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.declarations.FirConstructor
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.modality
+import org.jetbrains.kotlin.fir.resolve.dfa.cfg.ConstExpressionNode
+import org.jetbrains.kotlin.fir.resolve.dfa.cfg.FunctionCallNode
+import org.jetbrains.kotlin.fir.resolve.dfa.cfg.QualifiedAccessNode
+import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 
 
 object LeakingThisChecker : FirDeclarationChecker<FirRegularClass>() {
@@ -46,8 +50,42 @@ object LeakingThisChecker : FirDeclarationChecker<FirRegularClass>() {
     private fun runCheck(classMembersContext: BaseClassMembersContext, reporter: DiagnosticReporter) {
         if (classMembersContext.isClassNotRelevantForChecker)
             return
+        val initializedProps = mutableListOf<FirVariableSymbol<*>>()
+
+        for (initState in classMembersContext.classInitStates.asReversed()) {
+            when (initState.state) {
+                InitState.ASSINGMENT_OR_INITIALIZER -> {
+                    if (initState.affectingNodes.all {
+                            it is ConstExpressionNode
+                                    || (it is FunctionCallNode
+                                    && !it.fir.calleeReference.isMemberOfTheClass(classMembersContext.classDeclaration.symbol.classId))
+                                    || (it is QualifiedAccessNode
+                                    && it.fir.calleeReference.isMemberOfTheClass(classMembersContext.classDeclaration.symbol.classId)
+                                    && initializedProps.contains(it.fir.calleeReference.resolvedSymbolAsProperty!!))
+                        })
+                        initializedProps.add(initState.accessedProperties[0]) // TODO
+                }
+                InitState.QUAILIFIED_ACCESS -> {
+                    if (!initState.accessedProperties.all {
+                            it in initializedProps
+                        })
+                        reporter.report(initState.cfgNode.fir.source)
+                }
+                else -> {
+
+                }
+            }
+        }
+
 
     }
+
+    private fun checkAffectingNodes(
+        initState: InitializeContextNode,
+        initializedProps: MutableList<FirVariableSymbol<*>>, classDeclaration: FirRegularClass
+    ) {
+    }
+
 
     private fun checkConstructor(
         constructorDecl: FirConstructor,
