@@ -16,21 +16,21 @@ import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
 import org.jetbrains.kotlin.fir.resolve.dfa.controlFlowGraph
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
+import org.jetbrains.kotlin.name.ClassId
 
 
-internal class BaseClassMembersContext(val classDeclaration: FirRegularClass) {
+internal class BaseClassMembersContext(private val classDeclaration: FirRegularClass) {
     val isClassNotRelevantForChecker: Boolean
         get() = propsDeclList.isEmpty()
-
     val isCfgAvailable: Boolean
         get() = classDeclaration.controlFlowGraphReference.controlFlowGraph != null
+    val classId: ClassId
+        get() = classDeclaration.symbol.classId
+
+    val classInitContextNodes = mutableListOf<InitializeContextNode>()
 
     private val classCfg: ControlFlowGraph
         get() = classDeclaration.controlFlowGraphReference.controlFlowGraph!!
-
-    val classInitStates = mutableListOf<InitializeContextNode>()
-
-    val initializedProps = mutableListOf<FirVariableSymbol<*>>()
 
     private val propsDeclList = mutableListOf<FirProperty>()
     private val anonymousInitializer = mutableListOf<FirAnonymousInitializer>()
@@ -45,41 +45,33 @@ internal class BaseClassMembersContext(val classDeclaration: FirRegularClass) {
             }
         val visitor = BackwardClassCfgVisitor(classDeclaration)
         classCfg.traverse(TraverseDirection.Backward, visitor)
-        classInitStates.addAll(visitor.initStates)
-        initializedProps.addAll(visitor.initializedProps)
+        classInitContextNodes.addAll(visitor.initContextNodes)
     }
 
     private class BackwardClassCfgVisitor(
         private val classDeclaration: FirRegularClass,
     ) : ControlFlowGraphVisitorVoid() {
 
-        val initStates = mutableListOf<InitializeContextNode>()
+        val initContextNodes = mutableListOf<InitializeContextNode>()
         val initializedProps = mutableListOf<FirVariableSymbol<*>>()
-// TODO
-//        val initCandidates = mutableListOf<FirVariableSymbol<*>>()
 
         var lastAssignmentContextNode: InitializeContextNode? = null
         var lastAssignRValue: FirExpression? = null
         var isInRvalueOfAssignment: Boolean = false
-        var lastAssignmentAffectingNodes = mutableListOf<CFGNode<*>>()
+        var lastAssignmentAffectingNodes = mutableListOf<InitializeContextNode>()
 
         var isInPropertyInitializer = false
-        var lastPropertyInitializerAffectingNodes = mutableListOf<CFGNode<*>>()
+        var lastPropertyInitializerAffectingNodes = mutableListOf<InitializeContextNode>()
         var lastPropertyInitializerContextNode: InitializeContextNode? = null
 
         override fun visitNode(node: CFGNode<*>) {
-            initStates.add(checkAndBuildNodeContext(cfgNode = node))
+            initContextNodes.add(checkAndBuildNodeContext(cfgNode = node))
         }
-
-//        TODO
-//        override fun visitConstExpressionNode(node: ConstExpressionNode) {
-//            visitNode(node)
-//        }
 
         override fun visitFunctionCallNode(node: FunctionCallNode) {
             val accessedMembers = mutableListOf<FirCallableSymbol<*>>()
             val accessedProperties = mutableListOf<FirVariableSymbol<*>>()
-            var initState = InitState.UNRESOLVABLE_FUN_CALL
+            var nodeType = ContextNodeType.UNRESOLVABLE_FUN_CALL
             if (node.fir.calleeReference.isMemberOfTheClass(classDeclaration.symbol.classId)) {
                 accessedMembers.add(node.fir.calleeReference.resolvedSymbolAsNamedFunction!!)
                 for (argument in node.fir.argumentList.arguments) {
@@ -92,52 +84,53 @@ internal class BaseClassMembersContext(val classDeclaration: FirRegularClass) {
                             accessedProperties.add(argument.calleeReference.resolvedSymbolAsProperty!!)
                     }
                 }
-                initState = InitState.RESOLVABLE_MEMBER_CALL
+                nodeType = ContextNodeType.RESOLVABLE_MEMBER_CALL
             }
-            initStates.add(
+            initContextNodes.add(
                 checkAndBuildNodeContext(
                     cfgNode = node,
                     accessedMembers = accessedMembers,
                     accessedProperties = accessedProperties,
-                    state = initState
+                    nodeType = nodeType
                 )
             )
         }
 
         override fun visitQualifiedAccessNode(node: QualifiedAccessNode) {
             val accessedProperties = mutableListOf<FirVariableSymbol<*>>()
+            var nodeType = ContextNodeType.NOT_MEMBER_QUALIFIED_ACCESS
             if (node.fir.calleeReference.isMemberOfTheClass(classDeclaration.symbol.classId)) {
                 // if it is a member and it is qualifiedAccess then it is property :)
                 val member = node.fir.calleeReference.resolvedSymbolAsProperty!!
+                nodeType = ContextNodeType.PROPERTY_QUALIFIED_ACCESS
                 accessedProperties.add(member)
             }
-            initStates.add(
+            initContextNodes.add(
                 checkAndBuildNodeContext(
                     cfgNode = node,
                     accessedMembers = accessedProperties,
                     accessedProperties = accessedProperties,
-                    state = InitState.QUAILIFIED_ACCESS
+                    nodeType = nodeType
                 )
             )
         }
 
         override fun visitVariableAssignmentNode(node: VariableAssignmentNode) {
             if (node.fir.lValue.resolvedSymbolAsProperty?.callableId?.classId == classDeclaration.symbol.classId) {
-                val accessedMembers = mutableListOf<FirCallableSymbol<*>>()
-                val accessedProperties = mutableListOf<FirVariableSymbol<*>>()
                 val symbol = node.fir.lValue.resolvedSymbolAsProperty
-                accessedMembers.add(symbol!!)
-                accessedProperties.add(symbol)
+                val accessedProperties = mutableListOf<FirVariableSymbol<*>>()
+                accessedProperties.add(symbol!!)
                 lastAssignmentContextNode =
                     checkAndBuildNodeContext(
                         cfgNode = node,
-                        accessedMembers = accessedMembers,
+                        accessedMembers = accessedProperties,
                         accessedProperties = accessedProperties,
-                        state = InitState.ASSINGMENT_OR_INITIALIZER
+                        initCandidates = accessedProperties,
+                        nodeType = ContextNodeType.ASSINGMENT_OR_INITIALIZER
                     )
                 isInRvalueOfAssignment = true
                 lastAssignRValue = node.fir.rValue
-                initStates.add(lastAssignmentContextNode!!)
+                initContextNodes.add(lastAssignmentContextNode!!)
             } else {
 //                TODO:  properties assignment local vals?
                 visitNode(node)
@@ -147,14 +140,15 @@ internal class BaseClassMembersContext(val classDeclaration: FirRegularClass) {
         override fun visitPropertyInitializerEnterNode(node: PropertyInitializerEnterNode) {
             if (node.fir.isClassPropertyWithInitializer) {
                 isInPropertyInitializer = false
-                val accessedProperties = listOf(node.fir.symbol)
-                initStates.add(
+                val accessedProperties = mutableListOf<FirVariableSymbol<*>>(node.fir.symbol)
+                initContextNodes.add(
                     checkAndBuildNodeContext(
                         cfgNode = node,
                         accessedMembers = accessedProperties,
                         accessedProperties = accessedProperties,
-                        possibleAffectingNodes = lastPropertyInitializerAffectingNodes,
-                        state = InitState.ASSINGMENT_OR_INITIALIZER
+                        initCandidates = accessedProperties,
+                        affectingNodes = lastPropertyInitializerAffectingNodes,
+                        nodeType = ContextNodeType.ASSINGMENT_OR_INITIALIZER
                     )
                 )
                 lastPropertyInitializerAffectingNodes = mutableListOf()
@@ -167,15 +161,16 @@ internal class BaseClassMembersContext(val classDeclaration: FirRegularClass) {
         override fun visitPropertyInitializerExitNode(node: PropertyInitializerExitNode) {
             if (node.fir.isClassPropertyWithInitializer) {
                 isInPropertyInitializer = true
-                val accessedProperties = listOf(node.fir.symbol)
+                val accessedProperties = mutableListOf<FirVariableSymbol<*>>(node.fir.symbol)
                 // TODO affected by itself also :)))
                 lastPropertyInitializerContextNode = checkAndBuildNodeContext(
                     cfgNode = node,
-                    accessedProperties = accessedProperties,
                     accessedMembers = accessedProperties,
-                    state = InitState.ASSINGMENT_OR_INITIALIZER
+                    accessedProperties = accessedProperties,
+                    initCandidates = accessedProperties,
+                    nodeType = ContextNodeType.ASSINGMENT_OR_INITIALIZER
                 )
-                initStates.add(lastPropertyInitializerContextNode!!)
+                initContextNodes.add(lastPropertyInitializerContextNode!!)
             } else {
                 visitNode(node)
             }
@@ -186,36 +181,38 @@ internal class BaseClassMembersContext(val classDeclaration: FirRegularClass) {
             cfgNode: CFGNode<*>,
             accessedMembers: List<FirCallableSymbol<*>> = emptyList(),
             accessedProperties: List<FirVariableSymbol<*>> = emptyList(),
-            initializedProperties: MutableList<FirVariableSymbol<*>> = mutableListOf(),
-            possibleAffectedNodes: MutableList<CFGNode<*>> = mutableListOf(),
-            possibleAffectingNodes: MutableList<CFGNode<*>> = mutableListOf(),
-            state: InitState = InitState.NOT_AFFECTED
+            initCandidates: MutableList<FirVariableSymbol<*>> = mutableListOf(),
+            affectedNodes: MutableList<InitializeContextNode> = mutableListOf(),
+            affectingNodes: MutableList<InitializeContextNode> = mutableListOf(),
+            nodeType: ContextNodeType = ContextNodeType.NOT_AFFECTED,
+            isInitialized: Boolean = false
         ): InitializeContextNode {
 
             val context = InitializeContextNode(
                 cfgNode,
                 accessedMembers,
                 accessedProperties,
-                initializedProperties,
-                possibleAffectedNodes,
-                possibleAffectingNodes,
-                state
+                initCandidates,
+                affectedNodes,
+                affectingNodes,
+                nodeType,
+                isInitialized
             )
 // TODO: if variable
-            if (checkIfInRvalueOfAssignment(cfgNode))
-                context.affectedNodes.add((lastAssignmentContextNode?.cfgNode)!!)
+            if (checkIfInRvalueOfAssignment(context))
+                context.affectedNodes.add(lastAssignmentContextNode!!)
 
-            if (checkIfInPropertyInitializer(cfgNode)) {
-                context.affectedNodes.add((lastAssignmentContextNode?.cfgNode)!!)
+            if (checkIfInPropertyInitializer(context)) {
+                context.affectedNodes.add(lastAssignmentContextNode!!)
             }
 
             return context
         }
 
-        private fun checkIfInRvalueOfAssignment(node: CFGNode<*>): Boolean {
+        private fun checkIfInRvalueOfAssignment(contextNode: InitializeContextNode): Boolean {
             if (isInRvalueOfAssignment) {
-                lastAssignmentAffectingNodes.add(node)
-                if (node.fir == lastAssignRValue) {
+                lastAssignmentAffectingNodes.add(contextNode)
+                if (contextNode.cfgNode.fir == lastAssignRValue) {
                     isInRvalueOfAssignment = false
                     lastAssignmentContextNode?.affectingNodes = lastAssignmentAffectingNodes
                     lastAssignmentAffectingNodes = mutableListOf()
@@ -225,12 +222,10 @@ internal class BaseClassMembersContext(val classDeclaration: FirRegularClass) {
             return false
         }
 
-        private fun checkIfInPropertyInitializer(node: CFGNode<*>) =
+        private fun checkIfInPropertyInitializer(contextNode: InitializeContextNode) =
             if (isInPropertyInitializer) {
-                lastPropertyInitializerAffectingNodes.add(node)
+                lastPropertyInitializerAffectingNodes.add(contextNode)
                 true
             } else false
-
-
     }
 }

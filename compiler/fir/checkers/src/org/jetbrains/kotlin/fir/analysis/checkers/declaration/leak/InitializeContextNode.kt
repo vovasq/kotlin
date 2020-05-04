@@ -13,21 +13,33 @@ internal class InitializeContextNode(
     val cfgNode: CFGNode<*>,
     val accessedMembers: List<FirCallableSymbol<*>>,
     val accessedProperties: List<FirVariableSymbol<*>>,
-    val initializedProperties: MutableList<FirVariableSymbol<*>>,
-    var affectedNodes: MutableList<CFGNode<*>>, // TODO: change to InitStateNodeContext
-    var affectingNodes: MutableList<CFGNode<*>>, // TODO: change to InitStateNodeContext
-    var state: InitState
-)
+    val initCandidates: MutableList<FirVariableSymbol<*>>,
+    var affectedNodes: MutableList<InitializeContextNode>,
+    var affectingNodes: MutableList<InitializeContextNode>,
+    var nodeType: ContextNodeType,
+    var isInitialized: Boolean // if true => initCandidate contains initialized property
+) {
+    val initCandidate: FirVariableSymbol<*>
+        get() = initCandidates[0]
+    val firstAccessedProperty: FirVariableSymbol<*>
+        get() = accessedProperties[0]
 
-internal enum class InitState {
+    fun confirmInitForCandidate() {
+        isInitialized = true
+    }
+}
+
+internal enum class ContextNodeType {
     ASSINGMENT_OR_INITIALIZER,
-    QUAILIFIED_ACCESS,
-
-    INIT_FAIL,
-    INIT_OK,
+    PROPERTY_QUALIFIED_ACCESS,
+    NOT_MEMBER_QUALIFIED_ACCESS,
     NOT_AFFECTED,
     RESOLVABLE_MEMBER_CALL,
     UNRESOLVABLE_FUN_CALL,
-    UNRESOLVABLE,
-    FULL_INIT_OK
+    THIS_PASSING
+}
+
+internal enum class InitState {
+    BACKWARD_CFG_RESOLVE,
+    MEMBERS_CALLS_RESOLVE,
 }

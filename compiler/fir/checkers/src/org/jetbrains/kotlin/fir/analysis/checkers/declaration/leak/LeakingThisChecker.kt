@@ -15,8 +15,6 @@ import org.jetbrains.kotlin.fir.declarations.FirConstructor
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.modality
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.ConstExpressionNode
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.FunctionCallNode
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.QualifiedAccessNode
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 
 
@@ -50,26 +48,28 @@ object LeakingThisChecker : FirDeclarationChecker<FirRegularClass>() {
     private fun runCheck(classMembersContext: BaseClassMembersContext, reporter: DiagnosticReporter) {
         if (classMembersContext.isClassNotRelevantForChecker)
             return
-        val initializedProps = mutableListOf<FirVariableSymbol<*>>()
+        val initializedProps = mutableSetOf<FirVariableSymbol<*>>()
 
-        for (initState in classMembersContext.classInitStates.asReversed()) {
-            when (initState.state) {
-                InitState.ASSINGMENT_OR_INITIALIZER -> {
-                    if (initState.affectingNodes.all {
-                            it is ConstExpressionNode
-                                    || (it is FunctionCallNode
-                                    && !it.fir.calleeReference.isMemberOfTheClass(classMembersContext.classDeclaration.symbol.classId))
-                                    || (it is QualifiedAccessNode
-                                    && it.fir.calleeReference.isMemberOfTheClass(classMembersContext.classDeclaration.symbol.classId)
-                                    && initializedProps.contains(it.fir.calleeReference.resolvedSymbolAsProperty!!))
-                        })
-                        initializedProps.add(initState.accessedProperties[0]) // TODO
+        for (initContextNode in classMembersContext.classInitContextNodes.asReversed()) {
+            when (initContextNode.nodeType) {
+                ContextNodeType.ASSINGMENT_OR_INITIALIZER -> {
+                    if (initContextNode.affectingNodes.all {
+                            it.cfgNode is ConstExpressionNode // TODO: add visitConstNode?
+                                    || (it.nodeType == ContextNodeType.UNRESOLVABLE_FUN_CALL)
+                                    || (it.nodeType == ContextNodeType.PROPERTY_QUALIFIED_ACCESS
+                                    && it.firstAccessedProperty.callableId.classId == classMembersContext.classId
+                                    && initializedProps.contains(it.firstAccessedProperty))
+                        }) {
+                        initContextNode.confirmInitForCandidate()
+                        initializedProps.add(initContextNode.initCandidate)
+                    }
                 }
-                InitState.QUAILIFIED_ACCESS -> {
-                    if (!initState.accessedProperties.all {
-                            it in initializedProps
+                ContextNodeType.PROPERTY_QUALIFIED_ACCESS -> {
+                    if (initContextNode.accessedProperties.any {
+                            it !in initializedProps
                         })
-                        reporter.report(initState.cfgNode.fir.source)
+                    // TODO: report p1.length not p1 exactly
+                        reporter.report(initContextNode.cfgNode.fir.source)
                 }
                 else -> {
 
