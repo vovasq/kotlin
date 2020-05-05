@@ -5,6 +5,8 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration
 
+import org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak.LeakingThisChecker
+
 object CommonDeclarationCheckers : DeclarationCheckers() {
     override val declarationCheckers: List<FirBasicDeclarationChecker> = listOf(
         FirAnnotationClassDeclarationChecker,
@@ -18,5 +20,8 @@ object CommonDeclarationCheckers : DeclarationCheckers() {
 
     override val constructorCheckers: List<FirConstructorChecker> = listOf(
         FirConstructorAllowedChecker
+    )
+    override val classDeclarationCheckers: List<FirClassDeclarationChecker> = listOf(
+        LeakingThisChecker
     )
 }

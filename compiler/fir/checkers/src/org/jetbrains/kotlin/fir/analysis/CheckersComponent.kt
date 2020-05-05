@@ -61,14 +61,19 @@ private class ComposedDeclarationCheckers : DeclarationCheckers() {
     override val constructorCheckers: List<FirConstructorChecker>
         get() = _constructorCheckers
 
+    override val classDeclarationCheckers: List<FirClassDeclarationChecker>
+        get() = _classDeclarationCheckers
+
     private val _declarationCheckers: MutableList<FirBasicDeclarationChecker> = mutableListOf()
     private val _memberDeclarationCheckers: MutableList<FirMemberDeclarationChecker> = mutableListOf()
     private val _constructorCheckers: MutableList<FirConstructorChecker> = mutableListOf()
+    private val _classDeclarationCheckers: MutableList<FirClassDeclarationChecker> = mutableListOf()
 
     fun register(checkers: DeclarationCheckers) {
         _declarationCheckers += checkers.declarationCheckers
         _memberDeclarationCheckers += checkers.allMemberDeclarationCheckers
         _constructorCheckers += checkers.allConstructorCheckers
+        _classDeclarationCheckers += checkers.classDeclarationCheckers
     }
 }
 

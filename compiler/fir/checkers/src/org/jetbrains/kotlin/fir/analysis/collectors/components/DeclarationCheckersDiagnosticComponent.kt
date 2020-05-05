@@ -21,7 +21,9 @@ class DeclarationCheckersDiagnosticComponent(collector: AbstractDiagnosticCollec
 
     override fun visitRegularClass(regularClass: FirRegularClass, data: CheckerContext) {
         runCheck { checkers.memberDeclarationCheckers.check(regularClass, data, it) }
+        runCheck { checkers.classDeclarationCheckers.check(regularClass, data, it) }
     }
+
 
     override fun visitSimpleFunction(simpleFunction: FirSimpleFunction, data: CheckerContext) {
         runCheck { checkers.memberDeclarationCheckers.check(simpleFunction, data, it) }
