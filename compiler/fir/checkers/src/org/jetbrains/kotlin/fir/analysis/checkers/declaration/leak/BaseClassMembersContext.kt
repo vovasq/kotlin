@@ -43,189 +43,189 @@ internal class BaseClassMembersContext(private val classDeclaration: FirRegularC
                     is FirProperty -> propsDeclList.add(declaration)
                 }
             }
-        val visitor = BackwardClassCfgVisitor(classDeclaration)
+        val visitor = BackwardCfgVisitor(classDeclaration.symbol.classId)
         classCfg.traverse(TraverseDirection.Backward, visitor)
         classInitContextNodes.addAll(visitor.initContextNodes)
     }
 
-    private class BackwardClassCfgVisitor(
-        private val classDeclaration: FirRegularClass,
-    ) : ControlFlowGraphVisitorVoid() {
+}
 
-        val initContextNodes = mutableListOf<InitializeContextNode>()
-        val initializedProps = mutableListOf<FirVariableSymbol<*>>()
+internal class BackwardCfgVisitor(
+    private val classId: ClassId,
+) : ControlFlowGraphVisitorVoid() {
 
-        var lastAssignmentContextNode: InitializeContextNode? = null
-        var lastAssignRValue: FirExpression? = null
-        var isInRvalueOfAssignment: Boolean = false
-        var lastAssignmentAffectingNodes = mutableListOf<InitializeContextNode>()
+    val initContextNodes = mutableListOf<InitializeContextNode>()
 
-        var isInPropertyInitializer = false
-        var lastPropertyInitializerAffectingNodes = mutableListOf<InitializeContextNode>()
-        var lastPropertyInitializerContextNode: InitializeContextNode? = null
+    var lastAssignmentContextNode: InitializeContextNode? = null
+    var lastAssignRValue: FirExpression? = null
+    var isInRvalueOfAssignment: Boolean = false
+    var lastAssignmentAffectingNodes = mutableListOf<InitializeContextNode>()
 
-        override fun visitNode(node: CFGNode<*>) {
-            initContextNodes.add(checkAndBuildNodeContext(cfgNode = node))
-        }
+    var isInPropertyInitializer = false
+    var lastPropertyInitializerAffectingNodes = mutableListOf<InitializeContextNode>()
+    var lastPropertyInitializerContextNode: InitializeContextNode? = null
 
-        override fun visitFunctionCallNode(node: FunctionCallNode) {
-            val accessedMembers = mutableListOf<FirCallableSymbol<*>>()
-            val accessedProperties = mutableListOf<FirVariableSymbol<*>>()
-            var nodeType = ContextNodeType.UNRESOLVABLE_FUN_CALL
-            if (node.fir.calleeReference.isMemberOfTheClass(classDeclaration.symbol.classId)) {
-                accessedMembers.add(node.fir.calleeReference.resolvedSymbolAsNamedFunction!!)
-                for (argument in node.fir.argumentList.arguments) {
-                    if ((argument is FirQualifiedAccessExpression)
-                        && argument.calleeReference.isMemberOfTheClass(classDeclaration.symbol.classId)
-                    ) {
+    override fun visitNode(node: CFGNode<*>) {
+        initContextNodes.add(checkAndBuildNodeContext(cfgNode = node))
+    }
+
+    override fun visitFunctionCallNode(node: FunctionCallNode) {
+        val accessedMembers = mutableListOf<FirCallableSymbol<*>>()
+        val accessedProperties = mutableListOf<FirVariableSymbol<*>>()
+        var nodeType = ContextNodeType.UNRESOLVABLE_FUN_CALL
+        if (node.fir.calleeReference.isMemberOfTheClass(classId)) {
+            accessedMembers.add(node.fir.calleeReference.resolvedSymbolAsNamedFunction!!)
+            for (argument in node.fir.argumentList.arguments) {
+                if ((argument is FirQualifiedAccessExpression)
+                    && argument.calleeReference.isMemberOfTheClass(classId)
+                ) {
 //                    TODO: clean up with casting
-                        accessedMembers.add(argument.calleeReference.resolvedSymbolAsCallable!!)
-                        if (argument.calleeReference.resolvedSymbolAsProperty != null)
-                            accessedProperties.add(argument.calleeReference.resolvedSymbolAsProperty!!)
-                    }
+                    accessedMembers.add(argument.calleeReference.resolvedSymbolAsCallable!!)
+                    if (argument.calleeReference.resolvedSymbolAsProperty != null)
+                        accessedProperties.add(argument.calleeReference.resolvedSymbolAsProperty!!)
                 }
-                nodeType = ContextNodeType.RESOLVABLE_MEMBER_CALL
             }
-            initContextNodes.add(
-                checkAndBuildNodeContext(
-                    cfgNode = node,
-                    accessedMembers = accessedMembers,
-                    accessedProperties = accessedProperties,
-                    nodeType = nodeType
-                )
-            )
+            nodeType = ContextNodeType.RESOLVABLE_MEMBER_CALL
         }
+        initContextNodes.add(
+            checkAndBuildNodeContext(
+                cfgNode = node,
+                accessedMembers = accessedMembers,
+                accessedProperties = accessedProperties,
+                nodeType = nodeType
+            )
+        )
+    }
 
-        override fun visitQualifiedAccessNode(node: QualifiedAccessNode) {
+    override fun visitQualifiedAccessNode(node: QualifiedAccessNode) {
+        val accessedProperties = mutableListOf<FirVariableSymbol<*>>()
+        var nodeType = ContextNodeType.NOT_MEMBER_QUALIFIED_ACCESS
+        if (node.fir.calleeReference.isMemberOfTheClass(classId)) {
+            // if it is a member and it is qualifiedAccess then it is property :)
+            val member = node.fir.calleeReference.resolvedSymbolAsProperty!!
+            nodeType = ContextNodeType.PROPERTY_QUALIFIED_ACCESS
+            accessedProperties.add(member)
+        }
+        initContextNodes.add(
+            checkAndBuildNodeContext(
+                cfgNode = node,
+                accessedMembers = accessedProperties,
+                accessedProperties = accessedProperties,
+                nodeType = nodeType
+            )
+        )
+    }
+
+    override fun visitVariableAssignmentNode(node: VariableAssignmentNode) {
+        if (node.fir.lValue.resolvedSymbolAsProperty?.callableId?.classId == classId) {
+            val symbol = node.fir.lValue.resolvedSymbolAsProperty
             val accessedProperties = mutableListOf<FirVariableSymbol<*>>()
-            var nodeType = ContextNodeType.NOT_MEMBER_QUALIFIED_ACCESS
-            if (node.fir.calleeReference.isMemberOfTheClass(classDeclaration.symbol.classId)) {
-                // if it is a member and it is qualifiedAccess then it is property :)
-                val member = node.fir.calleeReference.resolvedSymbolAsProperty!!
-                nodeType = ContextNodeType.PROPERTY_QUALIFIED_ACCESS
-                accessedProperties.add(member)
-            }
-            initContextNodes.add(
+            accessedProperties.add(symbol!!)
+            lastAssignmentContextNode =
                 checkAndBuildNodeContext(
-                    cfgNode = node,
-                    accessedMembers = accessedProperties,
-                    accessedProperties = accessedProperties,
-                    nodeType = nodeType
-                )
-            )
-        }
-
-        override fun visitVariableAssignmentNode(node: VariableAssignmentNode) {
-            if (node.fir.lValue.resolvedSymbolAsProperty?.callableId?.classId == classDeclaration.symbol.classId) {
-                val symbol = node.fir.lValue.resolvedSymbolAsProperty
-                val accessedProperties = mutableListOf<FirVariableSymbol<*>>()
-                accessedProperties.add(symbol!!)
-                lastAssignmentContextNode =
-                    checkAndBuildNodeContext(
-                        cfgNode = node,
-                        accessedMembers = accessedProperties,
-                        accessedProperties = accessedProperties,
-                        initCandidates = accessedProperties,
-                        nodeType = ContextNodeType.ASSINGMENT_OR_INITIALIZER
-                    )
-                isInRvalueOfAssignment = true
-                lastAssignRValue = node.fir.rValue
-                initContextNodes.add(lastAssignmentContextNode!!)
-            } else {
-//                TODO:  properties assignment local vals?
-                visitNode(node)
-            }
-        }
-
-        override fun visitPropertyInitializerEnterNode(node: PropertyInitializerEnterNode) {
-            if (node.fir.isClassPropertyWithInitializer) {
-                isInPropertyInitializer = false
-                val accessedProperties = mutableListOf<FirVariableSymbol<*>>(node.fir.symbol)
-                initContextNodes.add(
-                    checkAndBuildNodeContext(
-                        cfgNode = node,
-                        accessedMembers = accessedProperties,
-                        accessedProperties = accessedProperties,
-                        initCandidates = accessedProperties,
-                        affectingNodes = lastPropertyInitializerAffectingNodes,
-                        nodeType = ContextNodeType.ASSINGMENT_OR_INITIALIZER
-                    )
-                )
-                lastPropertyInitializerAffectingNodes = mutableListOf()
-
-            } else {
-                visitNode(node)
-            }
-        }
-
-        override fun visitPropertyInitializerExitNode(node: PropertyInitializerExitNode) {
-            if (node.fir.isClassPropertyWithInitializer) {
-                isInPropertyInitializer = true
-                val accessedProperties = mutableListOf<FirVariableSymbol<*>>(node.fir.symbol)
-                // TODO affected by itself also :)))
-                lastPropertyInitializerContextNode = checkAndBuildNodeContext(
                     cfgNode = node,
                     accessedMembers = accessedProperties,
                     accessedProperties = accessedProperties,
                     initCandidates = accessedProperties,
                     nodeType = ContextNodeType.ASSINGMENT_OR_INITIALIZER
                 )
-                initContextNodes.add(lastPropertyInitializerContextNode!!)
-            } else {
-                visitNode(node)
-            }
+            isInRvalueOfAssignment = true
+            lastAssignRValue = node.fir.rValue
+            initContextNodes.add(lastAssignmentContextNode!!)
+        } else {
+//                TODO:  properties assignment local vals?
+            visitNode(node)
         }
+    }
+
+    override fun visitPropertyInitializerEnterNode(node: PropertyInitializerEnterNode) {
+        if (node.fir.isClassPropertyWithInitializer) {
+            isInPropertyInitializer = false
+            val accessedProperties = mutableListOf<FirVariableSymbol<*>>(node.fir.symbol)
+            initContextNodes.add(
+                checkAndBuildNodeContext(
+                    cfgNode = node,
+                    accessedMembers = accessedProperties,
+                    accessedProperties = accessedProperties,
+                    initCandidates = accessedProperties,
+                    affectingNodes = lastPropertyInitializerAffectingNodes,
+                    nodeType = ContextNodeType.ASSINGMENT_OR_INITIALIZER
+                )
+            )
+            lastPropertyInitializerAffectingNodes = mutableListOf()
+
+        } else {
+            visitNode(node)
+        }
+    }
+
+    override fun visitPropertyInitializerExitNode(node: PropertyInitializerExitNode) {
+        if (node.fir.isClassPropertyWithInitializer) {
+            isInPropertyInitializer = true
+            val accessedProperties = mutableListOf<FirVariableSymbol<*>>(node.fir.symbol)
+            // TODO affected by itself also :)))
+            lastPropertyInitializerContextNode = checkAndBuildNodeContext(
+                cfgNode = node,
+                accessedMembers = accessedProperties,
+                accessedProperties = accessedProperties,
+                initCandidates = accessedProperties,
+                nodeType = ContextNodeType.ASSINGMENT_OR_INITIALIZER
+            )
+            initContextNodes.add(lastPropertyInitializerContextNode!!)
+        } else {
+            visitNode(node)
+        }
+    }
 //        TODO: lambda
 
-        private fun checkAndBuildNodeContext(
-            cfgNode: CFGNode<*>,
-            accessedMembers: List<FirCallableSymbol<*>> = emptyList(),
-            accessedProperties: List<FirVariableSymbol<*>> = emptyList(),
-            initCandidates: MutableList<FirVariableSymbol<*>> = mutableListOf(),
-            affectedNodes: MutableList<InitializeContextNode> = mutableListOf(),
-            affectingNodes: MutableList<InitializeContextNode> = mutableListOf(),
-            nodeType: ContextNodeType = ContextNodeType.NOT_AFFECTED,
-            isInitialized: Boolean = false
-        ): InitializeContextNode {
+    private fun checkAndBuildNodeContext(
+        cfgNode: CFGNode<*>,
+        accessedMembers: List<FirCallableSymbol<*>> = emptyList(),
+        accessedProperties: List<FirVariableSymbol<*>> = emptyList(),
+        initCandidates: MutableList<FirVariableSymbol<*>> = mutableListOf(),
+        affectedNodes: MutableList<InitializeContextNode> = mutableListOf(),
+        affectingNodes: MutableList<InitializeContextNode> = mutableListOf(),
+        nodeType: ContextNodeType = ContextNodeType.NOT_AFFECTED,
+        isInitialized: Boolean = false
+    ): InitializeContextNode {
 
-            val context = InitializeContextNode(
-                cfgNode,
-                accessedMembers,
-                accessedProperties,
-                initCandidates,
-                affectedNodes,
-                affectingNodes,
-                nodeType,
-                isInitialized
-            )
+        val context = InitializeContextNode(
+            cfgNode,
+            accessedMembers,
+            accessedProperties,
+            initCandidates,
+            affectedNodes,
+            affectingNodes,
+            nodeType,
+            isInitialized
+        )
 // TODO: if variable
-            if (checkIfInRvalueOfAssignment(context))
-                context.affectedNodes.add(lastAssignmentContextNode!!)
+        if (checkIfInRvalueOfAssignment(context))
+            context.affectedNodes.add(lastAssignmentContextNode!!)
 
-            if (checkIfInPropertyInitializer(context)) {
-                context.affectedNodes.add(lastAssignmentContextNode!!)
-            }
-
-            return context
+        if (checkIfInPropertyInitializer(context)) {
+            context.affectedNodes.add(lastAssignmentContextNode!!)
         }
 
-        private fun checkIfInRvalueOfAssignment(contextNode: InitializeContextNode): Boolean {
-            if (isInRvalueOfAssignment) {
-                lastAssignmentAffectingNodes.add(contextNode)
-                if (contextNode.cfgNode.fir == lastAssignRValue) {
-                    isInRvalueOfAssignment = false
-                    lastAssignmentContextNode?.affectingNodes = lastAssignmentAffectingNodes
-                    lastAssignmentAffectingNodes = mutableListOf()
-                }
-                return true
-            }
-            return false
-        }
-
-        private fun checkIfInPropertyInitializer(contextNode: InitializeContextNode) =
-            if (isInPropertyInitializer) {
-                lastPropertyInitializerAffectingNodes.add(contextNode)
-                true
-            } else false
+        return context
     }
+
+    private fun checkIfInRvalueOfAssignment(contextNode: InitializeContextNode): Boolean {
+        if (isInRvalueOfAssignment) {
+            lastAssignmentAffectingNodes.add(contextNode)
+            if (contextNode.cfgNode.fir == lastAssignRValue) {
+                isInRvalueOfAssignment = false
+                lastAssignmentContextNode?.affectingNodes = lastAssignmentAffectingNodes
+                lastAssignmentAffectingNodes = mutableListOf()
+            }
+            return true
+        }
+        return false
+    }
+
+    private fun checkIfInPropertyInitializer(contextNode: InitializeContextNode) =
+        if (isInPropertyInitializer) {
+            lastPropertyInitializerAffectingNodes.add(contextNode)
+            true
+        } else false
 }

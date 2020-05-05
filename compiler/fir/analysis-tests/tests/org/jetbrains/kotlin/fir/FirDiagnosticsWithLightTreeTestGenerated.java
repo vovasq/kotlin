@@ -880,6 +880,11 @@ public class FirDiagnosticsWithLightTreeTestGenerated extends AbstractFirDiagnos
                                                                             true);
             }
 
+            @TestMetadata("manyInitSections.kt")
+            public void testManyInitSections() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/manyInitSections.kt");
+            }
+
             @TestMetadata("simpleInitNeg.kt")
             public void testSimpleInitNeg() throws Exception {
                 runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/simpleInitNeg.kt");
