@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.declarations.FirConstructor
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 
 abstract class FirDeclarationChecker<in D : FirDeclaration> {
     abstract fun check(declaration: D, context: CheckerContext, reporter: DiagnosticReporter)
@@ -18,3 +19,4 @@ abstract class FirDeclarationChecker<in D : FirDeclaration> {
 typealias FirBasicDeclarationChecker = FirDeclarationChecker<FirDeclaration>
 typealias FirMemberDeclarationChecker = FirDeclarationChecker<FirMemberDeclaration>
 typealias FirConstructorChecker = FirDeclarationChecker<FirConstructor>
+typealias FirClassDeclarationChecker = FirDeclarationChecker<FirRegularClass>
