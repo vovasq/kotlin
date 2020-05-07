@@ -31,12 +31,11 @@ fun <D> ControlFlowGraph.traverse(
     stack.addFirst(initialNode)
     while (stack.isNotEmpty()) {
         val node = stack.removeFirst()
-        visitedNodes.add(node)
         val previousNodes = when (direction) {
             TraverseDirection.Forward -> node.previousNodes
             TraverseDirection.Backward -> node.followingNodes
         }
-        if (node != initialNode && !previousNodes.all { it in visitedNodes }) {
+        if (node != initialNode && previousNodes.all { it !is StubNode } && !previousNodes.all { it in visitedNodes }) {
             if (!delayedNodes.add(node)) {
                 throw IllegalArgumentException("Infinite loop")
             }
