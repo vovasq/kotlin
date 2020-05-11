@@ -5,10 +5,7 @@
 
 package org.jetbrains.kotlin.fir.analysis.cfa
 
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.CFGNode
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.ControlFlowGraph
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.ControlFlowGraphVisitor
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.ControlFlowGraphVisitorVoid
+import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
 
 enum class TraverseDirection {
     Forward, Backward
@@ -18,7 +15,9 @@ enum class TraverseDirection {
 fun <D> ControlFlowGraph.traverse(
     direction: TraverseDirection,
     visitor: ControlFlowGraphVisitor<*, D>,
-    data: D
+    data: D,
+    acceptPrevious: (CFGNode<*>, CFGNode<*>) -> Boolean = { _: CFGNode<*>, _: CFGNode<*> -> true },
+    acceptFollowing: (CFGNode<*>, CFGNode<*>) -> Boolean = { _: CFGNode<*>, _: CFGNode<*> -> true }
 ) {
     val visitedNodes = mutableSetOf<CFGNode<*>>()
     // used to prevent infinite cycle
@@ -35,7 +34,9 @@ fun <D> ControlFlowGraph.traverse(
             TraverseDirection.Forward -> node.previousNodes
             TraverseDirection.Backward -> node.followingNodes
         }
-        if (node != initialNode && previousNodes.all { it !is StubNode } && !previousNodes.all { it in visitedNodes }) {
+        if (node != initialNode
+            && previousNodes.all { acceptPrevious(node, it) } && !previousNodes.all { it in visitedNodes }
+        ) {
             if (!delayedNodes.add(node)) {
                 throw IllegalArgumentException("Infinite loop")
             }
@@ -50,7 +51,7 @@ fun <D> ControlFlowGraph.traverse(
             TraverseDirection.Backward -> node.previousNodes
         }
 
-        followingNodes.filterNot { visitedNodes.contains(it) }.forEach { stack.addFirst(it) }
+        followingNodes.filterNot { visitedNodes.contains(it) && acceptFollowing(node, it) }.forEach { stack.addFirst(it) }
     }
 }
 
@@ -58,5 +59,13 @@ fun ControlFlowGraph.traverse(
     direction: TraverseDirection,
     visitor: ControlFlowGraphVisitorVoid
 ) {
-    traverse(direction, visitor, null)
+    traverse(
+        direction, visitor, null,
+        { node, _ -> node !is StubNode },
+        { cur, next ->
+            cur !is StubNode
+                    && !(cur is ExitSafeCallNode && next is QualifiedAccessNode)
+                    && !(cur is FunctionEnterNode && next is FunctionExitNode)
+        })
+
 }

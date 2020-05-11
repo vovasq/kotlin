@@ -893,6 +893,11 @@ public class FirDiagnosticsTestGenerated extends AbstractFirDiagnosticsTest {
                 KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
             }
 
+            @TestMetadata("inlineAndLambdas.kt")
+            public void testInlineAndLambdas() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/inlineAndLambdas.kt");
+            }
+
             @TestMetadata("manyInitSections.kt")
             public void testManyInitSections() throws Exception {
                 runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/manyInitSections.kt");
