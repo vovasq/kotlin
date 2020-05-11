@@ -888,6 +888,11 @@ public class FirDiagnosticsWithLightTreeTestGenerated extends AbstractFirDiagnos
                 KotlinTestUtils.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis"), Pattern.compile("^([^.]+)\\.kt$"), null, true);
             }
 
+            @TestMetadata("inlineAndLambdas.kt")
+            public void testInlineAndLambdas() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/inlineAndLambdas.kt");
+            }
+
             @TestMetadata("manyInitSections.kt")
             public void testManyInitSections() throws Exception {
                 runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/manyInitSections.kt");
@@ -923,7 +928,6 @@ public class FirDiagnosticsWithLightTreeTestGenerated extends AbstractFirDiagnos
                 runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/simplePropertyInit.kt");
             }
         }
-
     }
 
     @TestMetadata("compiler/fir/analysis-tests/testData/resolve/expresssions")
