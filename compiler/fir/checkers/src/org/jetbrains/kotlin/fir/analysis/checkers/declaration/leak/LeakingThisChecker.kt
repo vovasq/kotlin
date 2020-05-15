@@ -7,8 +7,7 @@ package org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak
 
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.FirSourceElement
-import org.jetbrains.kotlin.fir.analysis.cfa.TraverseDirection
-import org.jetbrains.kotlin.fir.analysis.cfa.traverse
+import org.jetbrains.kotlin.fir.analysis.cfa.traverseForwardWithoutLoops
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirDeclarationChecker
 import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
@@ -27,14 +26,12 @@ object LeakingThisChecker : FirDeclarationChecker<FirRegularClass>() {
         when (declaration.modality) {
             Modality.FINAL -> {
                 if (!declaration.hasClassSomeParents())
-                    try {
-                        runCheck(
-                            collectDataForSimpleClassAnalysis(declaration),
-                            reporter
-                        )
-                    } catch (e: Exception) {
 
-                    }
+                    runCheck(
+                        collectDataForSimpleClassAnalysis(declaration),
+                        reporter
+                    )
+
             }
             else -> {
 
@@ -53,7 +50,7 @@ object LeakingThisChecker : FirDeclarationChecker<FirRegularClass>() {
         val initializedProperties = mutableSetOf<FirVariableSymbol<*>>()
         val reportedProperties = mutableSetOf<FirVariableSymbol<*>>()
         checkContextNodes(
-            classMembersContext.classInitContextNodes.asReversed(),
+            classMembersContext.classInitContextNodes,
             initializedProperties,
             reportedProperties,
             0,
@@ -96,11 +93,11 @@ object LeakingThisChecker : FirDeclarationChecker<FirRegularClass>() {
                 }
                 ContextNodeType.RESOLVABLE_MEMBER_CALL -> {
                     if (memberCallLevel < maxMemberCallLevel) {
-                        val memberBodyVisitor = BackwardCfgVisitor(classId)
+                        val memberBodyVisitor = ForwardCfgVisitor(classId)
                         val memberCfg =
                             (initContextNode.cfgNode as FunctionCallNode).fir.calleeReference.resolvedSymbolAsNamedFunction?.fir?.controlFlowGraphReference?.controlFlowGraph
                         try {
-                            memberCfg?.traverse(TraverseDirection.Backward, memberBodyVisitor)
+                            memberCfg?.traverseForwardWithoutLoops(memberBodyVisitor)
                             memberCfg?.enterNode
                             checkContextNodes(
                                 memberBodyVisitor.initContextNodes,

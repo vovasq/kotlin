@@ -72,3 +72,23 @@ fun ControlFlowGraph.traverse(
         })
 
 }
+
+@OptIn(ExperimentalStdlibApi::class)
+fun ControlFlowGraph.traverseForwardWithoutLoops(
+    visitor: ControlFlowGraphVisitorVoid,
+    acceptFollowing: (CFGNode<*>, CFGNode<*>) -> Boolean = { _: CFGNode<*>, _: CFGNode<*> -> true }
+) {
+    val visitedNodes = mutableSetOf<CFGNode<*>>()
+    val stack = ArrayDeque<CFGNode<*>>()
+    stack.addFirst(enterNode)
+    while (stack.isNotEmpty()) {
+        val node = stack.removeFirst()
+        if (visitedNodes.add(node)) {
+            node.accept(visitor, null)
+            node.followingNodes.forEach {
+                if (acceptFollowing(node, it))
+                    stack.addFirst(it)
+            }
+        }
+    }
+}

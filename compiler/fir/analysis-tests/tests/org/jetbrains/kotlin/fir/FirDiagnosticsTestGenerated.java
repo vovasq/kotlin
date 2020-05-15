@@ -903,11 +903,6 @@ public class FirDiagnosticsTestGenerated extends AbstractFirDiagnosticsTest {
                 runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/memberCallInInitNeg.kt");
             }
 
-            @TestMetadata("memberCallInInitPos.kt")
-            public void testMemberCallInInitPos() throws Exception {
-                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/memberCallInInitPos.kt");
-            }
-
             @TestMetadata("propertyInit.kt")
             public void testPropertyInit() throws Exception {
                 runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/propertyInit.kt");
