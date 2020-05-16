@@ -9,13 +9,13 @@ import org.jetbrains.kotlin.fir.resolve.dfa.cfg.CFGNode
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 
-internal class InitializeContextNode(
+internal class InitContextNode(
     val cfgNode: CFGNode<*>,
     val accessedMembers: List<FirCallableSymbol<*>>,
     val accessedProperties: List<FirVariableSymbol<*>>,
     val initCandidates: MutableList<FirVariableSymbol<*>>,
-    var affectedNodes: MutableList<InitializeContextNode>,
-    var affectingNodes: MutableList<InitializeContextNode>,
+    var affectedNodes: MutableList<InitContextNode>,
+    var affectingNodes: MutableList<InitContextNode>,
     var nodeType: ContextNodeType,
     var isInitialized: Boolean // if true => initCandidate contains initialized property
 ) {
@@ -30,7 +30,7 @@ internal class InitializeContextNode(
 }
 
 internal enum class ContextNodeType {
-    ASSINGMENT_OR_INITIALIZER,
+    ASSIGNMENT_OR_INITIALIZER,
     PROPERTY_QUALIFIED_ACCESS,
     PROPERTY_SAFE_QUALIFIED_ACCESS,
     NOT_MEMBER_QUALIFIED_ACCESS,
@@ -38,9 +38,4 @@ internal enum class ContextNodeType {
     RESOLVABLE_MEMBER_CALL,
     UNRESOLVABLE_FUN_CALL,
     THIS_PASSING
-}
-
-internal enum class InitState {
-    BACKWARD_CFG_RESOLVE,
-    MEMBERS_CALLS_RESOLVE,
 }
