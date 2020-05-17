@@ -10,12 +10,26 @@ FILE: inlineAndLambdas.kt
         public final val p2: R|kotlin/String|
             public get(): R|kotlin/String|
 
+        public final val p3: R|kotlin/Unit| = this@R|/A|.R|/A.notInline|(<L> = notInline@fun <anonymous>(): R|kotlin/Int| {
+            ^ Int(3)
+        }
+        )
+            public get(): R|kotlin/Unit|
+
         init {
             this@R|/A|.R|/A.inLineCatch|(<L> = inLineCatch@fun <anonymous>(): R|kotlin/Int| <kind=UNKNOWN>  {
                 ^ this@R|/A|.R|/A.p1|.R|kotlin/String.length|
             }
             )
+            lval local1: R|kotlin/Unit| = this@R|/A|.R|/A.notInline|(<L> = notInline@fun <anonymous>(): R|kotlin/Int| {
+                ^ Int(1)
+            }
+            )
             this@R|/A|.R|/A.p2| = String(dsadsa)
+            this@R|/A|.R|/A.notInline|(<L> = notInline@fun <anonymous>(): R|kotlin/Int| {
+                ^ this@R|/A|.R|/A.p1|.R|kotlin/String.length|
+            }
+            )
         }
 
         private final inline fun inLineCatch(f: R|() -> kotlin/Int|): R|kotlin/Unit| {

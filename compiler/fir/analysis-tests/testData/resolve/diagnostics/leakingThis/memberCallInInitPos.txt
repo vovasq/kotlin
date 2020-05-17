@@ -1,4 +1,4 @@
-FILE: memberCallInInitNeg.kt
+FILE: memberCallInInitPos.kt
     public final class C : R|kotlin/Any| {
         public constructor(): R|C| {
             super<R|kotlin/Any|>()
@@ -13,22 +13,31 @@ FILE: memberCallInInitNeg.kt
         public final val p3: R|kotlin/String|
             public get(): R|kotlin/String|
 
+        public final val p4: R|kotlin/String|
+            public get(): R|kotlin/String|
+
         init {
             this@R|/C|.R|/C.memberCall1|()
             this@R|/C|.R|/C.p3| = String(ura)
             this@R|/C|.R|/C.p2| = this@R|/C|.R|/C.p3|.R|kotlin/String.length|
+            this@R|/C|.R|/C.p4| = String(intiniada)
         }
 
         public final fun memberCall1(): R|kotlin/Unit| {
             this@R|/C|.R|/C.memberCall2|()
+            this@R|/C|.R|/C.p3|.R|kotlin/String.length|
         }
 
         public final fun memberCall2(): R|kotlin/Unit| {
-            this@R|/C|.R|/C.memberCall3|()
+            local final fun localCallable(): R|kotlin/Unit| {
+                this@R|/C|.R|/C.p4|.R|kotlin/String.length|
+            }
+
+            R|<local>/localCallable|()
         }
 
         public final fun memberCall3(): R|kotlin/Unit| {
-            this@R|/C|.R|/C.p3|.R|kotlin/String.length|
+            this@R|/C|.R|/C.memberCall2|()
         }
 
     }

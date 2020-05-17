@@ -22,20 +22,24 @@ import org.jetbrains.kotlin.name.ClassId
 internal class InitContextAnalyzer(
     private val classInitContext: BaseClassInitContext,
     private val reporter: DiagnosticReporter,
-    private val maxMemberCallLevel: Int
+    private val maxResolvedCallLevel: Int
 ) {
 
     private val initializedProperties = mutableSetOf<FirVariableSymbol<*>>()
     private val reportedProperties = mutableSetOf<FirVariableSymbol<*>>()
 
-    private var memberCallLevel: Int = 0
-    private val resolvedMemberCalls = mutableListOf<FirCallableSymbol<*>>()
-
+    private var callLevel: Int = 0
+    private val resolvedCalls = mutableSetOf<FirCallableSymbol<*>>()
 
     private val classId: ClassId
         get() = classInitContext.classId
 
-    fun analyze(node: CFGNode<*>) {
+    fun analyze() {
+        if (classInitContext.isCfgAvailable)
+            classInitContext.classCfg.traverseForwardWithoutLoops(ForwardCfgVisitor(classInitContext.classId), analyze = this::analyze)
+    }
+
+    private fun analyze(node: CFGNode<*>) {
         val contextNode = classInitContext.classInitContextNodesMap[node] ?: return
         when (contextNode.nodeType) {
             ContextNodeType.ASSIGNMENT_OR_INITIALIZER -> {
@@ -53,9 +57,10 @@ internal class InitContextAnalyzer(
                     reportedProperties.add(contextNode.firstAccessedProperty)
                 }
             }
-            ContextNodeType.RESOLVABLE_MEMBER_CALL -> {
-                if (memberCallLevel < maxMemberCallLevel) {
-                    resolveMemberCall(contextNode)
+            ContextNodeType.RESOLVABLE_THIS_RECEIVER_CALL, ContextNodeType.RESOLVABLE_CALL -> {
+                if (callLevel < maxResolvedCallLevel) {
+                    callLevel += 1
+                    resolveCall(contextNode)
                 }
             }
             else -> return
@@ -63,19 +68,17 @@ internal class InitContextAnalyzer(
 
     }
 
-    private fun resolveMemberCall(contextNode: InitContextNode) {
-        try {
-            val memberCfg = contextNode.memberCallCFG ?: return
-            val memberBodyVisitor = ForwardCfgVisitor(classId)
-            if (contextNode.memberCallSymbol !in resolvedMemberCalls) {
-                memberCallLevel += 1
-                memberCfg.traverseForwardWithoutLoops(memberBodyVisitor)
-                classInitContext.classInitContextNodesMap.putAll(memberBodyVisitor.initContextNodesMap)
-            }
-            memberCfg.traverseForwardWithoutLoops(memberBodyVisitor, this::analyze)
-        } catch (e: Exception) {
-
+    private fun resolveCall(contextNode: InitContextNode) {
+//        try {
+        val callableCfg = contextNode.callableCFG ?: return
+        val callableBodyVisitor = ForwardCfgVisitor(classId)
+        if (resolvedCalls.add(contextNode.callableSymbol ?: return)) {
+            callableCfg.traverseForwardWithoutLoops(callableBodyVisitor)
+            classInitContext.classInitContextNodesMap.putAll(callableBodyVisitor.initContextNodesMap)
         }
+        callableCfg.traverseForwardWithoutLoops(callableBodyVisitor, analyze = this::analyze)
+//        } catch (e: Exception) {
+//        }
     }
 
     private fun DiagnosticReporter.report(source: FirSourceElement?) {
@@ -91,10 +94,10 @@ internal class InitContextAnalyzer(
                     && initializedProperties.contains(it.firstAccessedProperty))
         }
 
-    private val InitContextNode.memberCallCFG: ControlFlowGraph?
+    private val InitContextNode.callableCFG: ControlFlowGraph?
         get() = (cfgNode as FunctionCallNode).fir.calleeReference.resolvedSymbolAsNamedFunction?.fir?.controlFlowGraphReference?.controlFlowGraph
 
-    private val InitContextNode.memberCallSymbol: FirCallableSymbol<*>?
+    private val InitContextNode.callableSymbol: FirCallableSymbol<*>?
         get() = (cfgNode as FunctionCallNode).fir.calleeReference.resolvedSymbolAsNamedFunction
 
 
