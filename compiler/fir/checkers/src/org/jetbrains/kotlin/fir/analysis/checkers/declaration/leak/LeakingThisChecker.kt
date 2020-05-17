@@ -6,7 +6,6 @@
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak
 
 import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.fir.analysis.cfa.traverseForwardWithoutLoops
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirDeclarationChecker
 import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
@@ -36,10 +35,8 @@ object LeakingThisChecker : FirDeclarationChecker<FirRegularClass>() {
         )
 
     private fun runCheck(classInitContext: BaseClassInitContext, reporter: DiagnosticReporter) {
-
-        val analyzer = InitContextAnalyzer(classInitContext, reporter, 2)
-        if (classInitContext.isCfgAvailable)
-            classInitContext.classCfg.traverseForwardWithoutLoops(ForwardCfgVisitor(classInitContext.classId), analyzer::analyze)
+        val analyzer = InitContextAnalyzer(classInitContext, reporter, 100)
+        analyzer.analyze()
     }
 }
 

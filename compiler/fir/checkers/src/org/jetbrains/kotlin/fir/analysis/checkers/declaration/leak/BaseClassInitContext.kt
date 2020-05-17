@@ -10,6 +10,7 @@ import org.jetbrains.kotlin.fir.declarations.FirAnonymousInitializer
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
+import org.jetbrains.kotlin.fir.expressions.FirThisReceiverExpression
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
 import org.jetbrains.kotlin.fir.resolve.dfa.controlFlowGraph
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
@@ -64,6 +65,10 @@ internal class ForwardCfgVisitor(
     // for safeCall detection
     private var lastQualifiedAccessContextNode: InitContextNode? = null
 
+    private val isLastNodeThisReceiver: Boolean
+        get() = if (currentAffectingNodes.isEmpty()) false
+        else currentAffectingNodes.peek().nodeType == ContextNodeType.RESOLVABLE_THIS_RECEIVER_CALL
+
     override fun visitNode(node: CFGNode<*>) {
         val context = checkAndBuildNodeContext(cfgNode = node)
         initContextNodesMap[node] = context
@@ -73,20 +78,22 @@ internal class ForwardCfgVisitor(
         val accessedMembers = mutableListOf<FirCallableSymbol<*>>()
         val accessedProperties = mutableListOf<FirVariableSymbol<*>>()
         var nodeType = ContextNodeType.UNRESOLVABLE_FUN_CALL
-        if (node.fir.calleeReference.isMemberOfTheClass(classId)) {
+        if (node.fir.calleeReference.isCallResolvable(classId)) {
             accessedMembers.add(node.fir.calleeReference.resolvedSymbolAsNamedFunction!!)
-            for (argument in node.fir.argumentList.arguments) {
-                if ((argument is FirQualifiedAccessExpression)
-                    && argument.calleeReference.isMemberOfTheClass(classId)
-                ) {
-//                    TODO: clean up with casting
-                    accessedMembers.add(argument.calleeReference.resolvedSymbolAsCallable!!)
-                    if (argument.calleeReference.resolvedSymbolAsProperty != null)
-                        accessedProperties.add(argument.calleeReference.resolvedSymbolAsProperty!!)
-                }
-            }
-            nodeType = ContextNodeType.RESOLVABLE_MEMBER_CALL
+            nodeType = ContextNodeType.RESOLVABLE_CALL
         }
+        for (argument in node.fir.argumentList.arguments)
+            when {
+                argument is FirThisReceiverExpression -> {
+                    nodeType = ContextNodeType.RESOLVABLE_THIS_RECEIVER_CALL
+                }
+                argument is FirQualifiedAccessExpression && argument.calleeReference.isMemberOfTheClass(classId) -> {
+                    accessedMembers.add(argument.calleeReference.resolvedSymbolAsCallable!!)
+                    accessedProperties.add(argument.calleeReference.resolvedSymbolAsProperty ?: continue)
+                }
+                else -> continue
+            }
+
         val context = checkAndBuildNodeContext(
             cfgNode = node,
             accessedMembers = accessedMembers,
@@ -99,27 +106,31 @@ internal class ForwardCfgVisitor(
 
     override fun visitQualifiedAccessNode(node: QualifiedAccessNode) {
         val accessedProperties = mutableListOf<FirVariableSymbol<*>>()
-        var nodeType = ContextNodeType.NOT_MEMBER_QUALIFIED_ACCESS
-        if (node.fir.calleeReference.isMemberOfTheClass(classId)) {
-            // if it is a member and it is qualifiedAccess then it is property :)
-            val member = node.fir.calleeReference.resolvedSymbolAsProperty!!
-            nodeType = ContextNodeType.PROPERTY_QUALIFIED_ACCESS
-            accessedProperties.add(member)
-            lastQualifiedAccessContextNode = checkAndBuildNodeContext(
-                cfgNode = node,
-                accessedMembers = accessedProperties,
-                accessedProperties = accessedProperties,
-                nodeType = nodeType
-            )
-            initContextNodesMap[node] = lastQualifiedAccessContextNode!!
-        } else {
-            val context = checkAndBuildNodeContext(
-                cfgNode = node,
-                accessedMembers = accessedProperties,
-                accessedProperties = accessedProperties,
-                nodeType = nodeType
-            )
-            initContextNodesMap[node] = context
+        when {
+            node.fir.calleeReference.isMemberOfTheClass(classId) -> {
+                if (isLastNodeThisReceiver) {// case: "this.property"
+                    currentAffectingNodes.peek().nodeType = ContextNodeType.NOT_AFFECTED
+                }
+                // if it is a member and it is qualifiedAccess then it is property :)
+                val member = node.fir.calleeReference.resolvedSymbolAsProperty!!
+                accessedProperties.add(member)
+                lastQualifiedAccessContextNode = checkAndBuildNodeContext(
+                    cfgNode = node,
+                    accessedMembers = accessedProperties,
+                    accessedProperties = accessedProperties,
+                    nodeType = ContextNodeType.PROPERTY_QUALIFIED_ACCESS
+                )
+                initContextNodesMap[node] = lastQualifiedAccessContextNode!!
+            }
+            else -> {
+                val context = checkAndBuildNodeContext(
+                    cfgNode = node,
+                    accessedMembers = accessedProperties,
+                    accessedProperties = accessedProperties,
+                    nodeType = ContextNodeType.NOT_MEMBER_QUALIFIED_ACCESS
+                )
+                initContextNodesMap[node] = context
+            }
         }
     }
 
@@ -240,4 +251,5 @@ internal class ForwardCfgVisitor(
             lastPropertyInitializerAffectingNodes.add(context)
             true
         } else false
+
 }

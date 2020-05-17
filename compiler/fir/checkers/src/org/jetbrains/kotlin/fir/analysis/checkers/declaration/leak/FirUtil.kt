@@ -31,6 +31,11 @@ internal val FirReference.resolvedSymbolAsCallable: FirCallableSymbol<*>?
         else -> null
     }
 
+internal fun FirReference.isCallResolvable(expectedClassId: ClassId): Boolean {
+    val resolvedSymbol = resolvedSymbolAsCallable ?: return false
+    return resolvedSymbol.callableId.isLocal || resolvedSymbol.callableId.isTopLevel || expectedClassId == resolvedSymbol.callableId.classId
+}
+
 internal fun FirReference.isMemberOfTheClass(expectedClassId: ClassId): Boolean {
     val resolvedSymbol = resolvedSymbolAsCallable ?: return false
     val classId = resolvedSymbol.callableId.classId
