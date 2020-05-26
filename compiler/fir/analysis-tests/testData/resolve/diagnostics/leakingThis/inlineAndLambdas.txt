@@ -1,49 +1,63 @@
 FILE: inlineAndLambdas.kt
+    public final inline fun run(block: R|() -> kotlin/Unit|): R|kotlin/Unit| {
+        R|<local>/block|.R|FakeOverride<kotlin/Function0.invoke: R|kotlin/Unit|>|()
+    }
     public final class A : R|kotlin/Any| {
         public constructor(): R|A| {
             super<R|kotlin/Any|>()
         }
 
-        public final val p1: R|kotlin/String| = String(asa)
+        public final val p1: R|kotlin/String|
             public get(): R|kotlin/String|
 
         public final val p2: R|kotlin/String|
             public get(): R|kotlin/String|
 
-        public final val p3: R|kotlin/Unit| = this@R|/A|.R|/A.notInline|(<L> = notInline@fun <anonymous>(): R|kotlin/Int| {
-            ^ Int(3)
+        public final val p3: R|() -> kotlin/Int| = fun <anonymous>(): R|kotlin/Int| {
+            lval k: R|() -> kotlin/String| = fun <anonymous>(): R|kotlin/String| {
+                ^ String(adsnkjsa).R|kotlin/String.plus|(this@R|/A|.R|/A.p2|)
+            }
+
+            ^ Int(1).R|kotlin/Int.plus|(this@R|/A|.R|/A.p1|.R|kotlin/String.length|)
         }
-        )
-            public get(): R|kotlin/Unit|
+
+            public get(): R|() -> kotlin/Int|
+
+        public final val p4: R|(kotlin/Int) -> kotlin/String| = fun <anonymous>(i: R|kotlin/Int|): R|kotlin/String| {
+            ^ R|<local>/i|.R|kotlin/Any.toString|()
+        }
+
+            public get(): R|(kotlin/Int) -> kotlin/String|
+
+        public final val p5: R|(kotlin/Int) -> kotlin/String|
+            public get(): R|(kotlin/Int) -> kotlin/String|
+
+        public final val p6: R|(kotlin/Int) -> kotlin/String|
+            public get(): R|(kotlin/Int) -> kotlin/String|
+
+        public final val p7: R|(kotlin/Unit) -> kotlin/String|
+            public get(): R|(kotlin/Unit) -> kotlin/String|
 
         init {
-            this@R|/A|.R|/A.inLineCatch|(<L> = inLineCatch@fun <anonymous>(): R|kotlin/Int| <kind=UNKNOWN>  {
-                ^ this@R|/A|.R|/A.p1|.R|kotlin/String.length|
+            lval local1: R|() -> kotlin/Int| = fun <anonymous>(): R|kotlin/Int| {
+                ^ Int(22).R|kotlin/Int.plus|(this@R|/A|.R|/A.p1|.R|kotlin/String.length|)
             }
-            )
-            lval local1: R|kotlin/Unit| = this@R|/A|.R|/A.notInline|(<L> = notInline@fun <anonymous>(): R|kotlin/Int| {
-                ^ Int(1)
+
+            lval local2: R|(kotlin/Int) -> kotlin/String| = fun <anonymous>(i: R|kotlin/Int|): R|kotlin/String| {
+                ^ String(dasjkdnsa).R|kotlin/String.plus|(R|<local>/i|.R|kotlin/Any.toString|())
             }
-            )
-            this@R|/A|.R|/A.p2| = String(dsadsa)
-            this@R|/A|.R|/A.notInline|(<L> = notInline@fun <anonymous>(): R|kotlin/Int| {
-                ^ this@R|/A|.R|/A.p1|.R|kotlin/String.length|
+
+            this@R|/A|.R|/A.p2| = String(dsasdsa)
+            this@R|/A|.R|/A.p6| = fun <anonymous>(i: R|kotlin/Int|): R|kotlin/String| {
+                ^ this@R|/A|.R|/A.p1|.R|kotlin/String.plus|(String(dadsa))
             }
-            )
-        }
 
-        private final inline fun inLineCatch(f: R|() -> kotlin/Int|): R|kotlin/Unit| {
-            this@R|/A|.R|/A.p2|.R|kotlin/String.length|
-            R|<local>/f|.R|FakeOverride<kotlin/Function0.invoke: R|kotlin/Int|>|()
-        }
+            this@R|/A|.R|/A.p5| = R|<local>/local2|
+            this@R|/A|.R|/A.p7| = fun <anonymous>(it: R|kotlin/Unit|): R|kotlin/String| {
+                ^ String(ewqeqweqw)
+            }
 
-        private final fun notInline(f: R|() -> kotlin/Int|): R|kotlin/Unit| {
-            this@R|/A|.R|/A.memberCall1|()
-            R|<local>/f|.R|FakeOverride<kotlin/Function0.invoke: R|kotlin/Int|>|()
-            this@R|/A|.R|/A.memberCall1|()
-        }
-
-        private final fun memberCall1(): R|kotlin/Unit| {
+            this@R|/A|.R|/A.p1| = String(asa)
         }
 
     }
