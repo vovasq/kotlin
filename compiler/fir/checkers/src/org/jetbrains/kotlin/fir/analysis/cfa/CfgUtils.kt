@@ -75,7 +75,7 @@ fun ControlFlowGraph.traverseForwardWithoutLoops(
     visitor: ControlFlowGraphVisitorVoid,
     analyze: (CFGNode<*>) -> Unit = { _: CFGNode<*> -> },
     loopHandler: (CFGNode<*>) -> Unit = { _: CFGNode<*> -> },
-    acceptFollowing: (CFGNode<*>, CFGNode<*>) -> Boolean = { _: CFGNode<*>, _: CFGNode<*> -> true }
+    acceptFollowing: (CFGNode<*>, CFGNode<*>) -> Boolean = { _: CFGNode<*>, following: CFGNode<*> -> following !is StubNode }
 ) {
     val visitedNodes = mutableSetOf<CFGNode<*>>()
     val stack = ArrayDeque<CFGNode<*>>()

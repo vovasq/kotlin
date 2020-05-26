@@ -36,7 +36,12 @@ internal class InitContextAnalyzer(
 
     fun analyze() {
         if (classInitContext.isCfgAvailable)
-            classInitContext.classCfg.traverseForwardWithoutLoops(ForwardCfgVisitor(classInitContext.classId), analyze = this::analyze)
+            classInitContext.classCfg.traverseForwardWithoutLoops(
+                ForwardCfgVisitor(
+                    classInitContext.classId,
+                    classInitContext.classAnonymousFunctions
+                ), analyze = this::analyze
+            )
     }
 
     private fun analyze(node: CFGNode<*>) {
@@ -49,13 +54,7 @@ internal class InitContextAnalyzer(
                 }
             }
             ContextNodeType.PROPERTY_QUALIFIED_ACCESS -> {
-                if (contextNode.accessedProperties.any {
-                        it !in initializedProperties && it !in reportedProperties
-                    }
-                ) {
-                    reporter.report(contextNode.cfgNode.fir.source)
-                    reportedProperties.add(contextNode.firstAccessedProperty)
-                }
+                contextNode.isPropertyAccessOk()
             }
             ContextNodeType.RESOLVABLE_THIS_RECEIVER_CALL, ContextNodeType.RESOLVABLE_CALL -> {
                 if (callLevel < maxResolvedCallLevel) {
@@ -71,7 +70,7 @@ internal class InitContextAnalyzer(
     private fun resolveCall(contextNode: InitContextNode) {
 //        try {
         val callableCfg = contextNode.callableCFG ?: return
-        val callableBodyVisitor = ForwardCfgVisitor(classId)
+        val callableBodyVisitor = ForwardCfgVisitor(classId, classInitContext.classAnonymousFunctions)
         if (resolvedCalls.add(contextNode.callableSymbol ?: return)) {
             callableCfg.traverseForwardWithoutLoops(callableBodyVisitor)
             classInitContext.classInitContextNodesMap.putAll(callableBodyVisitor.initContextNodesMap)
@@ -85,11 +84,25 @@ internal class InitContextAnalyzer(
         source?.let { report(FirErrors.LEAKING_THIS_IN_CONSTRUCTOR.on(it, "Possible leaking this in constructor")) }
     }
 
+    private fun InitContextNode.isPropertyAccessOk():Boolean {
+        if (accessedProperties.any {
+                it !in initializedProperties && it !in reportedProperties
+            }
+        ) {
+            reporter.report(cfgNode.fir.source)
+            reportedProperties.add(firstAccessedProperty)
+            return true
+        }
+        return false
+    }
+
     private fun InitContextNode.isSuccessfullyInitNode(): Boolean =
         affectingNodes.all {
             it.cfgNode is ConstExpressionNode
                     || (it.nodeType == ContextNodeType.UNRESOLVABLE_FUN_CALL)
+                    || it.nodeType == ContextNodeType.NOT_AFFECTED
                     || (it.nodeType == ContextNodeType.PROPERTY_QUALIFIED_ACCESS
+                    && it.isPropertyAccessOk()
                     && it.firstAccessedProperty.callableId.classId == classId
                     && initializedProperties.contains(it.firstAccessedProperty))
         }
