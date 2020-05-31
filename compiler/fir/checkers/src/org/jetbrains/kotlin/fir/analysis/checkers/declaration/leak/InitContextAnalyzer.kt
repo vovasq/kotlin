@@ -20,9 +20,10 @@ import org.jetbrains.kotlin.name.ClassId
 
 
 internal class InitContextAnalyzer(
-    private val classInitContext: BaseClassInitContext,
+    private val classInitContext: ClassInitContext,
     private val reporter: DiagnosticReporter,
-    private val maxResolvedCallLevel: Int
+    private val maxResolvedCallLevel: Int,
+    private val maxResolvedSuperTypesLevel: Int
 ) {
 
     private val initializedProperties = mutableSetOf<FirVariableSymbol<*>>()
@@ -35,7 +36,7 @@ internal class InitContextAnalyzer(
         get() = classInitContext.classId
 
     fun analyze() {
-        if (classInitContext.isCfgAvailable)
+        if (classInitContext.isCfgAvailable && !classInitContext.isDerivedClassInitContext)
             classInitContext.classCfg.traverseForwardWithoutLoops(
                 ForwardCfgVisitor(
                     classInitContext.classId,
@@ -114,6 +115,5 @@ internal class InitContextAnalyzer(
 
     private val InitContextNode.callableSymbol: FirCallableSymbol<*>?
         get() = (cfgNode as FunctionCallNode).fir.calleeReference.resolvedSymbolAsNamedFunction
-
 
 }

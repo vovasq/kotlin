@@ -13,11 +13,13 @@ import org.jetbrains.kotlin.fir.resolve.dfa.cfg.CFGNode
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.FunctionEnterNode
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 
-internal class BaseClassInitContext(override val classDeclaration: FirRegularClass) : ClassInitContext() {
+internal class DerivedClassInitContext(
+    override val classDeclaration: FirRegularClass
+) : ClassInitContext() {
 
+    override val classInitContextNodesMap = mutableMapOf<CFGNode<*>, InitContextNode>()
     override val classAnonymousFunctions = mutableMapOf<FunctionEnterNode, MutableMap<CFGNode<*>, InitContextNode>>()
     override val primaryConstructorParams = mutableListOf<FirVariableSymbol<*>>()
-    override val classInitContextNodesMap = mutableMapOf<CFGNode<*>, InitContextNode>()
 
     init {
         if (isCfgAvailable) {
