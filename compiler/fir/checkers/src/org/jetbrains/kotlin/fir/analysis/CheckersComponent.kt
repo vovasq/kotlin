@@ -73,7 +73,7 @@ private class ComposedDeclarationCheckers : DeclarationCheckers() {
         _declarationCheckers += checkers.declarationCheckers
         _memberDeclarationCheckers += checkers.allMemberDeclarationCheckers
         _constructorCheckers += checkers.allConstructorCheckers
-        _classDeclarationCheckers += checkers.classDeclarationCheckers
+        _classDeclarationCheckers += checkers.allClassDeclarationCheckers
     }
 }
 

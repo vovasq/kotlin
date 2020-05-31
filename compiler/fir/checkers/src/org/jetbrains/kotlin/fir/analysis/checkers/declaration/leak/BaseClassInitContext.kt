@@ -6,10 +6,7 @@
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak
 
 import org.jetbrains.kotlin.fir.analysis.cfa.traverseForwardWithoutLoops
-import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
-import org.jetbrains.kotlin.fir.declarations.FirAnonymousInitializer
-import org.jetbrains.kotlin.fir.declarations.FirProperty
-import org.jetbrains.kotlin.fir.declarations.FirRegularClass
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.expressions.FirThisReceiverExpression
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
@@ -35,9 +32,15 @@ internal class BaseClassInitContext(private val classDeclaration: FirRegularClas
     private val anonymousInitializer = mutableListOf<FirAnonymousInitializer>()
 
     val classAnonymousFunctions = mutableMapOf<FunctionEnterNode, MutableMap<CFGNode<*>, InitContextNode>>()
+    val primaryConstructorParams = mutableListOf<FirVariableSymbol<*>>()
 
     init {
-        if (isCfgAvailable)
+        if (isCfgAvailable) {
+            for (declaration in classDeclaration.declarations) {
+                if (declaration is FirConstructor)
+                    primaryConstructorParams.addAll(declaration.valueParameters.map { it.symbol })
+            }
+
             for (graph in classCfg.subGraphs) {
                 for (subGraph in graph.subGraphs) {
                     if (subGraph.enterNode is FunctionEnterNode && subGraph.enterNode.fir is FirAnonymousFunction) {
@@ -50,7 +53,9 @@ internal class BaseClassInitContext(private val classDeclaration: FirRegularClas
                     }
                 }
             }
-        val visitor = ForwardCfgVisitor(classDeclaration.symbol.classId, classAnonymousFunctions)
+
+        }
+        val visitor = ForwardCfgVisitor(classDeclaration.symbol.classId, classAnonymousFunctions, primaryConstructorParams)
         classCfg.traverseForwardWithoutLoops(visitor)
         classInitContextNodesMap.putAll(visitor.initContextNodesMap)
     }
@@ -58,7 +63,8 @@ internal class BaseClassInitContext(private val classDeclaration: FirRegularClas
 
 internal class ForwardCfgVisitor(
     private val classId: ClassId,
-    private val classAnonymousFunctions: MutableMap<FunctionEnterNode, MutableMap<CFGNode<*>, InitContextNode>>
+    private val classAnonymousFunctions: MutableMap<FunctionEnterNode, MutableMap<CFGNode<*>, InitContextNode>>,
+    private val primaryConstructorParams: MutableList<FirVariableSymbol<*>> = mutableListOf()
 ) : ControlFlowGraphVisitorVoid() {
 
     val initContextNodesMap = mutableMapOf<CFGNode<*>, InitContextNode>()
@@ -66,7 +72,6 @@ internal class ForwardCfgVisitor(
     private var currentAffectingNodes = Stack<InitContextNode>()
 
     private var isInPropertyInitializer = false
-    private var lastPropertyInitializerAffectingNodes = mutableListOf<InitContextNode>()
     private var lastPropertyInitializerContextNode: InitContextNode? = null
 
     // @key is node which will affected by anonymous function,
@@ -134,11 +139,15 @@ internal class ForwardCfgVisitor(
                 initContextNodesMap[node] = lastQualifiedAccessContextNode!!
             }
             else -> {
+                var nodeType = ContextNodeType.NOT_MEMBER_QUALIFIED_ACCESS
+                if (node.fir.calleeReference.resolvedNamedReferenceSymbol in primaryConstructorParams) {
+                    nodeType = ContextNodeType.PRIMARY_CONSTRUCTOR_PARAM_QUALIFIED_ACCESS
+                }
                 val context = checkAndBuildNodeContext(
                     cfgNode = node,
                     accessedMembers = accessedProperties,
                     accessedProperties = accessedProperties,
-                    nodeType = ContextNodeType.NOT_MEMBER_QUALIFIED_ACCESS
+                    nodeType = nodeType
                 )
                 initContextNodesMap[node] = context
             }
@@ -175,10 +184,9 @@ internal class ForwardCfgVisitor(
                 accessedMembers = accessedProperties,
                 accessedProperties = accessedProperties,
                 initCandidates = accessedProperties,
-                nodeType = ContextNodeType.ASSIGNMENT_OR_INITIALIZER
+                nodeType = ContextNodeType.NOT_AFFECTED
             )
             initContextNodesMap[node] = lastPropertyInitializerContextNode!!
-            lastPropertyInitializerAffectingNodes = mutableListOf()
         } else {
             visitNode(node)
         }
@@ -194,10 +202,9 @@ internal class ForwardCfgVisitor(
                 accessedMembers = accessedProperties,
                 accessedProperties = accessedProperties,
                 initCandidates = accessedProperties,
-                affectingNodes = currentAffectingNodes,
+                affectingNodes = currentAffectingNodes.clone() as MutableList<InitContextNode>,
                 nodeType = ContextNodeType.ASSIGNMENT_OR_INITIALIZER
             )
-
             initContextNodesMap[node] = context
         } else {
             isInPropertyInitializer = false
@@ -244,7 +251,7 @@ internal class ForwardCfgVisitor(
 
         currentAffectingNodes.push(context)
 
-        if (checkIfInPropertyInitializer(context)) {
+        if (context.cfgNode !is PropertyInitializerEnterNode && isInPropertyInitializer) {
             context.affectedNodes.add(lastPropertyInitializerContextNode!!)
         }
 
@@ -281,9 +288,4 @@ internal class ForwardCfgVisitor(
         currentAffectingNodes = Stack()
     }
 
-    private fun checkIfInPropertyInitializer(context: InitContextNode) =
-        if (context.cfgNode !is PropertyInitializerEnterNode && isInPropertyInitializer) {
-            lastPropertyInitializerAffectingNodes.add(context)
-            true
-        } else false
 }
