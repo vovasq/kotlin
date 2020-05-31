@@ -5,38 +5,46 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak
 
-import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.analysis.checkers.context.CheckerContext
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.FirDeclarationChecker
 import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
-import org.jetbrains.kotlin.fir.declarations.modality
 
 object LeakingThisChecker : FirDeclarationChecker<FirRegularClass>() {
 
     override fun check(declaration: FirRegularClass, context: CheckerContext, reporter: DiagnosticReporter) {
-        when (declaration.modality) {
-            Modality.FINAL -> {
-                if (!declaration.hasClassSomeParents())
-                    runCheck(
-                        collectDataForSimpleClassAnalysis(declaration),
-                        reporter
-                    )
-            }
-            else -> {
 
-            }
-        }
+        val maxResolvedCallLevel = 100
+        val maxResolvedSuperTypesLevel = 4
+
+        val classInitContext = if (declaration.isDerivedClass())
+            collectDataForDerivedClassAnalysis(declaration)
+        else collectDataForBaseClassAnalysis(declaration)
+
+        runCheck(
+            classInitContext,
+            reporter, maxResolvedCallLevel, maxResolvedSuperTypesLevel
+        )
     }
 
-    private fun collectDataForSimpleClassAnalysis(classDeclaration: FirRegularClass): BaseClassInitContext =
-        BaseClassInitContext(
+    private fun runCheck(
+        classInitContext: ClassInitContext,
+        reporter: DiagnosticReporter,
+        maxResolvedCallLevel: Int,
+        maxResolvedSuperTypesLevel: Int
+    ) {
+        val analyzer = InitContextAnalyzer(classInitContext, reporter, maxResolvedCallLevel, maxResolvedSuperTypesLevel)
+        analyzer.analyze()
+    }
+
+    private fun collectDataForDerivedClassAnalysis(classDeclaration: FirRegularClass): DerivedClassInitContext =
+        DerivedClassInitContext(
             classDeclaration
         )
 
-    private fun runCheck(classInitContext: BaseClassInitContext, reporter: DiagnosticReporter) {
-        val analyzer = InitContextAnalyzer(classInitContext, reporter, 100)
-        analyzer.analyze()
-    }
+    private fun collectDataForBaseClassAnalysis(classDeclaration: FirRegularClass): BaseClassInitContext =
+        BaseClassInitContext(
+            classDeclaration
+        )
 }
 
