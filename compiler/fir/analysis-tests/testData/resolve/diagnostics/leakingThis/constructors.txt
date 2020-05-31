@@ -1,0 +1,59 @@
+FILE: constructors.kt
+    public final class A : R|kotlin/Any| {
+        public constructor(p0: R|kotlin/String|): R|A| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val p0: R|kotlin/String| = R|<local>/p0|
+            public get(): R|kotlin/String|
+
+        public final val p1: R|kotlin/String| = this@R|/A|.R|/A.memberCall1|()
+            public get(): R|kotlin/String|
+
+        public final val p2: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+        public final val p3: R|kotlin/Int| = R|<local>/p0|.R|kotlin/String.length|
+            public get(): R|kotlin/Int|
+
+        init {
+            this@R|/A|.R|/A.p2| = R|<local>/p0|.R|kotlin/String.length|.R|kotlin/Any.toString|().R|kotlin/String.plus|(String(dsadsa)).R|kotlin/String.plus|(this@R|/A|.R|/A.p3|.R|kotlin/Any.toString|())
+        }
+
+        private final fun memberCall1(): R|kotlin/String| {
+            ^memberCall1 this@R|/A|.R|/A.memberCall2|()
+        }
+
+        private final fun memberCall2(): R|kotlin/String| {
+            when () {
+                !=(this@R|/A|.R|/A.p2|.R|kotlin/String.length|, Int(0)) ->  {
+                    ^memberCall2 this@R|/A|.R|/A.p2|.R|kotlin/String.plus|(String(sadsa)).R|kotlin/String.plus|(this@R|/A|.R|/A.p0|)
+                }
+                else ->  {
+                    ^memberCall2 String(empty)
+                }
+            }
+
+        }
+
+    }
+    public final class B : R|kotlin/Any| {
+        public constructor(p0: R|kotlin/String|): R|B| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val p1: R|kotlin/String| = R|<local>/p0|
+            public get(): R|kotlin/String|
+
+        public final val p2: R|kotlin/Int| = R|<local>/p0|.R|kotlin/String.length|
+            public get(): R|kotlin/Int|
+
+        public final var p3: R|kotlin/String|
+            public get(): R|kotlin/String|
+            public set(value: R|kotlin/String|): R|kotlin/Unit|
+
+        init {
+            this@R|/B|.R|/B.p3| = String()
+        }
+
+    }

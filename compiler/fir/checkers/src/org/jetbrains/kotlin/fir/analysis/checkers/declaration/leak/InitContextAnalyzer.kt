@@ -84,7 +84,7 @@ internal class InitContextAnalyzer(
         source?.let { report(FirErrors.LEAKING_THIS_IN_CONSTRUCTOR.on(it, "Possible leaking this in constructor")) }
     }
 
-    private fun InitContextNode.isPropertyAccessOk():Boolean {
+    private fun InitContextNode.isPropertyAccessOk(): Boolean {
         if (accessedProperties.any {
                 it !in initializedProperties && it !in reportedProperties
             }
@@ -99,8 +99,10 @@ internal class InitContextAnalyzer(
     private fun InitContextNode.isSuccessfullyInitNode(): Boolean =
         affectingNodes.all {
             it.cfgNode is ConstExpressionNode
-                    || (it.nodeType == ContextNodeType.UNRESOLVABLE_FUN_CALL)
+                    || it.nodeType == ContextNodeType.UNRESOLVABLE_FUN_CALL
                     || it.nodeType == ContextNodeType.NOT_AFFECTED
+                    || it.nodeType == ContextNodeType.PRIMARY_CONSTRUCTOR_PARAM_QUALIFIED_ACCESS
+                    || it.nodeType == ContextNodeType.NOT_MEMBER_QUALIFIED_ACCESS
                     || (it.nodeType == ContextNodeType.PROPERTY_QUALIFIED_ACCESS
                     && it.isPropertyAccessOk()
                     && it.firstAccessedProperty.callableId.classId == classId

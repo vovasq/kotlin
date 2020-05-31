@@ -14,8 +14,8 @@ internal class InitContextNode(
     val accessedMembers: List<FirCallableSymbol<*>>,
     val accessedProperties: List<FirVariableSymbol<*>>,
     val initCandidates: MutableList<FirVariableSymbol<*>>,
-    var affectedNodes: MutableList<InitContextNode>,
-    var affectingNodes: MutableList<InitContextNode>,
+    var affectedNodes: MutableList<InitContextNode>, // nodes those depends on this node
+    var affectingNodes: MutableList<InitContextNode>, // nodes those affect on this node
     var nodeType: ContextNodeType,
     var isInitialized: Boolean // if true => initCandidate contains initialized property
 ) {
@@ -33,6 +33,7 @@ internal enum class ContextNodeType {
     ASSIGNMENT_OR_INITIALIZER,
     PROPERTY_QUALIFIED_ACCESS,
     PROPERTY_SAFE_QUALIFIED_ACCESS,
+    PRIMARY_CONSTRUCTOR_PARAM_QUALIFIED_ACCESS,
     NOT_MEMBER_QUALIFIED_ACCESS,
     NOT_AFFECTED,
     RESOLVABLE_CALL, // top-level, local and members calls
