@@ -27,14 +27,14 @@ internal abstract class ClassInitContext {
     val classId: ClassId
         get() = classDeclaration.symbol.classId
 
-    val isDerivedClassInitContext: Boolean
-        get() = classDeclaration.isDerivedClass()
-
     val isCfgAvailable: Boolean
         get() = classDeclaration.controlFlowGraphReference.controlFlowGraph != null
 
     val classCfg: ControlFlowGraph
         get() = classDeclaration.controlFlowGraphReference.controlFlowGraph!!
+
+    val isDerivedClassOverridesFun: Boolean
+        get() = (this as? DerivedClassInitContext)?.overrideFunctions?.isNotEmpty() ?: false
 
 }
 

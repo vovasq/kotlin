@@ -898,6 +898,11 @@ public class FirDiagnosticsTestGenerated extends AbstractFirDiagnosticsTest {
                 runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/constructors.kt");
             }
 
+            @TestMetadata("inher.kt")
+            public void testInher() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/inher.kt");
+            }
+
             @TestMetadata("inlineAndLambdas.kt")
             public void testInlineAndLambdas() throws Exception {
                 runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/inlineAndLambdas.kt");

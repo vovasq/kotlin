@@ -1,0 +1,63 @@
+FILE: inher.kt
+    public open class A : R|kotlin/Any| {
+        public constructor(a1: R|kotlin/String|, a2: R|kotlin/Int|, a3: R|kotlin/String|): R|A| {
+            super<R|kotlin/Any|>()
+        }
+
+        public open val a1: R|kotlin/String| = R|<local>/a1|
+            public get(): R|kotlin/String|
+
+        public final val a2: R|kotlin/Int| = R|<local>/a2|
+            public get(): R|kotlin/Int|
+
+        public final val a4: R|kotlin/Int| = R|<local>/a3|.R|kotlin/String.length|
+            public get(): R|kotlin/Int|
+
+        public final val a5: R|kotlin/String| = this@R|/A|.R|/A.baseCall|()
+            public get(): R|kotlin/String|
+
+        public open val a6: R|kotlin/Int|
+            public get(): R|kotlin/Int|
+
+        init {
+            this@R|/A|.R|/A.a6| = this@R|/A|.R|/A.a5|.R|kotlin/String.length|
+            this@R|/A|.R|/A.baseCall|()
+        }
+
+        public open fun baseCall(): R|kotlin/String| {
+            ^baseCall this@R|/A|.R|/A.a6|.R|kotlin/Any.toString|()
+        }
+
+        public final fun checkA(): R|kotlin/Boolean| {
+            ^checkA Boolean(true)
+        }
+
+    }
+    public final class B : R|A| {
+        public constructor(a1: R|kotlin/String|, b1: R|kotlin/String|, p2: R|kotlin/Int|, p3: R|kotlin/String|): R|B| {
+            super<R|A|>(R|<local>/a1|, R|<local>/p2|, R|<local>/p3|)
+        }
+
+        public final override val a1: R|kotlin/String| = R|<local>/a1|
+            public get(): R|kotlin/String|
+
+        public final val b1: R|kotlin/String| = R|<local>/b1|
+            public get(): R|kotlin/String|
+
+        public final val b2: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+        public final val b3: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+        init {
+            this@R|/B|.R|/B.b3| = R|<local>/b1|
+            this@R|/B|.R|/B.wrongCall|()
+            this@R|/B|.R|/B.b2| = R|<local>/a1|
+        }
+
+        private final fun wrongCall(): R|kotlin/Unit| {
+            this@R|/B|.R|/B.b2|.R|kotlin/String.length|
+        }
+
+    }

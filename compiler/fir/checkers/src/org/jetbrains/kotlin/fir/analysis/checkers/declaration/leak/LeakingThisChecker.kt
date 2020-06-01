@@ -18,33 +18,11 @@ object LeakingThisChecker : FirDeclarationChecker<FirRegularClass>() {
         val maxResolvedSuperTypesLevel = 4
 
         val classInitContext = if (declaration.isDerivedClass())
-            collectDataForDerivedClassAnalysis(declaration)
-        else collectDataForBaseClassAnalysis(declaration)
+            DerivedClassInitContext(context.session, declaration)
+        else BaseClassInitContext(declaration)
 
-        runCheck(
-            classInitContext,
-            reporter, maxResolvedCallLevel, maxResolvedSuperTypesLevel
-        )
-    }
-
-    private fun runCheck(
-        classInitContext: ClassInitContext,
-        reporter: DiagnosticReporter,
-        maxResolvedCallLevel: Int,
-        maxResolvedSuperTypesLevel: Int
-    ) {
         val analyzer = InitContextAnalyzer(classInitContext, reporter, maxResolvedCallLevel, maxResolvedSuperTypesLevel)
         analyzer.analyze()
     }
-
-    private fun collectDataForDerivedClassAnalysis(classDeclaration: FirRegularClass): DerivedClassInitContext =
-        DerivedClassInitContext(
-            classDeclaration
-        )
-
-    private fun collectDataForBaseClassAnalysis(classDeclaration: FirRegularClass): BaseClassInitContext =
-        BaseClassInitContext(
-            classDeclaration
-        )
 }
 
