@@ -36,14 +36,26 @@ internal class InitContextAnalyzer(
         get() = classInitContext.classId
 
     fun analyze() {
-        if (classInitContext.isCfgAvailable && !classInitContext.isDerivedClassInitContext)
-            classInitContext.classCfg.traverseForwardWithoutLoops(
-                ForwardCfgVisitor(
-                    classInitContext.classId,
-                    classInitContext.classAnonymousFunctions
-                ), analyze = this::analyze
-            )
+        if (classInitContext.isCfgAvailable)
+            if (classInitContext.isDerivedClassOverridesFun)
+                runSuperTypesAnalysis()
+            else
+                runSimpleAnalysis()
     }
+
+    private fun runSimpleAnalysis() {
+        classInitContext.classCfg.traverseForwardWithoutLoops(
+            ForwardCfgVisitor(
+                classInitContext.classId,
+                classInitContext.classAnonymousFunctions
+            ), analyze = this::analyze
+        )
+    }
+
+    private fun runSuperTypesAnalysis() {
+
+    }
+
 
     private fun analyze(node: CFGNode<*>) {
         val contextNode = classInitContext.classInitContextNodesMap[node] ?: return
@@ -69,7 +81,7 @@ internal class InitContextAnalyzer(
     }
 
     private fun resolveCall(contextNode: InitContextNode) {
-//        try {
+//        try { TODO: uncomment after all tests
         val callableCfg = contextNode.callableCFG ?: return
         val callableBodyVisitor = ForwardCfgVisitor(classId, classInitContext.classAnonymousFunctions)
         if (resolvedCalls.add(contextNode.callableSymbol ?: return)) {

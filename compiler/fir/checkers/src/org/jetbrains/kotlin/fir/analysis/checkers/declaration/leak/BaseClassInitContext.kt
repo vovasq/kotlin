@@ -26,6 +26,7 @@ internal class BaseClassInitContext(override val classDeclaration: FirRegularCla
                     primaryConstructorParams.addAll(declaration.valueParameters.map { it.symbol })
             }
 
+            // collect lambda/property data
             for (graph in classCfg.subGraphs) {
                 for (subGraph in graph.subGraphs) {
                     if (subGraph.enterNode is FunctionEnterNode && subGraph.enterNode.fir is FirAnonymousFunction) {
@@ -40,6 +41,8 @@ internal class BaseClassInitContext(override val classDeclaration: FirRegularCla
             }
 
         }
+
+        // 1st traverse class cfg for contextnodes collecting
         val visitor = ForwardCfgVisitor(classDeclaration.symbol.classId, classAnonymousFunctions, primaryConstructorParams)
         classCfg.traverseForwardWithoutLoops(visitor)
         classInitContextNodesMap.putAll(visitor.initContextNodesMap)
