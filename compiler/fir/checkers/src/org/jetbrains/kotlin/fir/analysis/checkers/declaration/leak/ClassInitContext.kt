@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak
 
+import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
@@ -16,7 +17,7 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 import org.jetbrains.kotlin.name.ClassId
 import java.util.*
 
-internal abstract class ClassInitContext {
+abstract class ClassInitContext {
 
     abstract val classDeclaration: FirRegularClass
 
@@ -33,10 +34,15 @@ internal abstract class ClassInitContext {
     val classCfg: ControlFlowGraph
         get() = classDeclaration.controlFlowGraphReference.controlFlowGraph!!
 
-    val isDerivedClassOverridesFun: Boolean
+    val isDerivedClassAndOverridesFun: Boolean
         get() = (this as? DerivedClassInitContext)?.overrideFunctions?.isNotEmpty() ?: false
 
 }
+
+internal fun createClassInitContext(declaration: FirRegularClass, session: FirSession) =
+    if (declaration.isDerivedClass())
+        DerivedClassInitContext(session, declaration)
+    else BaseClassInitContext(declaration)
 
 internal class ForwardCfgVisitor(
     private val classId: ClassId,
@@ -117,6 +123,8 @@ internal class ForwardCfgVisitor(
             }
             else -> {
                 var nodeType = ContextNodeType.NOT_MEMBER_QUALIFIED_ACCESS
+                val property = node.fir.calleeReference.resolvedSymbolAsProperty
+                if(property != null) accessedProperties.add(property)
                 if (node.fir.calleeReference.resolvedNamedReferenceSymbol in primaryConstructorParams) {
                     nodeType = ContextNodeType.PRIMARY_CONSTRUCTOR_PARAM_QUALIFIED_ACCESS
                 }

@@ -34,17 +34,17 @@ internal class BaseClassInitContext(override val classDeclaration: FirRegularCla
                             classDeclaration.symbol.classId,
                             mutableMapOf()
                         )
-                        subGraph.traverseForwardWithoutLoops(visitor)
+                        subGraph.traverseForwardWithoutLoops(visitor,this)
                         classAnonymousFunctions[subGraph.enterNode as FunctionEnterNode] = visitor.initContextNodesMap
                     }
                 }
             }
 
+            // 1st traverse class cfg for context nodes collecting
+            val visitor = ForwardCfgVisitor(classDeclaration.symbol.classId, classAnonymousFunctions, primaryConstructorParams)
+            classCfg.traverseForwardWithoutLoops(visitor, this)
+            classInitContextNodesMap.putAll(visitor.initContextNodesMap)
         }
 
-        // 1st traverse class cfg for contextnodes collecting
-        val visitor = ForwardCfgVisitor(classDeclaration.symbol.classId, classAnonymousFunctions, primaryConstructorParams)
-        classCfg.traverseForwardWithoutLoops(visitor)
-        classInitContextNodesMap.putAll(visitor.initContextNodesMap)
     }
 }

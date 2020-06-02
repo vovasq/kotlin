@@ -5,18 +5,24 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak
 
+import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.references.FirReference
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
+import org.jetbrains.kotlin.fir.resolve.toSymbol
 import org.jetbrains.kotlin.fir.symbols.AbstractFirBasedSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
+import org.jetbrains.kotlin.fir.types.ConeLookupTagBasedType
+import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
+import org.jetbrains.kotlin.fir.types.FirTypeRef
+import org.jetbrains.kotlin.fir.types.isAny
 import org.jetbrains.kotlin.name.ClassId
 
 // always contains at least kotlin/Any as a parent
-internal fun FirRegularClass.isDerivedClass() = this.superTypeRefs.size > 1
+internal fun FirRegularClass.isDerivedClass() = this.superTypeRefs.isNotEmpty() && !this.superTypeRefs[0].isAny
 
 
 internal val FirReference.resolvedNamedReferenceSymbol: AbstractFirBasedSymbol<*>?
@@ -52,4 +58,8 @@ internal fun FirReference.isMemberOfTheClass(expectedClassId: ClassId): Boolean 
 
 internal val FirProperty.isClassPropertyWithInitializer: Boolean
     get() = !this.isLocal && this.initializer != null
+
+
+internal fun FirTypeRef.getFirSuperTypeRegularClass(session: FirSession): FirRegularClass? =
+    (((this as? FirResolvedTypeRef)?.type as? ConeLookupTagBasedType)?.lookupTag?.toSymbol(session)?.fir as? FirRegularClass)
 
