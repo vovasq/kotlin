@@ -5,6 +5,7 @@
 
 package org.jetbrains.kotlin.fir.analysis.cfa
 
+import org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak.ClassInitContext
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
 
 enum class TraverseDirection {
@@ -73,7 +74,8 @@ fun ControlFlowGraph.traverse(
 @OptIn(ExperimentalStdlibApi::class)
 fun ControlFlowGraph.traverseForwardWithoutLoops(
     visitor: ControlFlowGraphVisitorVoid,
-    analyze: (CFGNode<*>) -> Unit = { _: CFGNode<*> -> },
+    initContext: ClassInitContext,
+    analyze: (CFGNode<*>, ClassInitContext) -> Unit = { _: CFGNode<*>, _: ClassInitContext -> },
     loopHandler: (CFGNode<*>) -> Unit = { _: CFGNode<*> -> },
     acceptFollowing: (CFGNode<*>, CFGNode<*>) -> Boolean = { _: CFGNode<*>, following: CFGNode<*> -> following !is StubNode }
 ) {
@@ -83,7 +85,7 @@ fun ControlFlowGraph.traverseForwardWithoutLoops(
     while (stack.isNotEmpty()) {
         val node = stack.removeFirst()
         if (visitedNodes.add(node)) {
-            analyze(node)
+            analyze(node, initContext)
             node.accept(visitor, null)
             node.followingNodes.forEach {
                 if (acceptFollowing(node, it))

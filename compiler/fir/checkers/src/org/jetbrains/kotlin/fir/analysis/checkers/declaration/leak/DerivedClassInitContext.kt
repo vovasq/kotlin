@@ -12,9 +12,9 @@ import org.jetbrains.kotlin.fir.declarations.FirConstructor
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.CFGNode
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.ControlFlowGraph
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.FunctionEnterNode
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
+import org.jetbrains.kotlin.name.Name
 
 
 @OptIn(ExperimentalStdlibApi::class)
@@ -27,17 +27,17 @@ internal class DerivedClassInitContext(
     override val classAnonymousFunctions = mutableMapOf<FunctionEnterNode, MutableMap<CFGNode<*>, InitContextNode>>()
     override val primaryConstructorParams = mutableListOf<FirVariableSymbol<*>>()
 
-    val overrideFunctions = mutableListOf<FirSimpleFunction>()
-    val allSuperTypesClassCfgStack = ArrayDeque<ControlFlowGraph>()
+    val overrideFunctions = mutableMapOf<Name, FirSimpleFunction>()
+    val superTypesInitContexts = ArrayDeque<ClassInitContext>()
 
     init {
         if (isCfgAvailable) {
             // collect all open functions
-            allSuperTypesClassCfgStack.addLast(classCfg)
+            superTypesInitContexts.addLast(this)
             for (declaration in classDeclaration.declarations) {
                 when (declaration) {
                     is FirConstructor -> primaryConstructorParams.addAll(declaration.valueParameters.map { it.symbol })
-                    is FirSimpleFunction -> if (declaration.status.isOverride) overrideFunctions.add(declaration)
+                    is FirSimpleFunction -> if (declaration.status.isOverride) overrideFunctions.put(declaration.name, declaration)
                     else -> {
                     }
                 }
@@ -50,15 +50,15 @@ internal class DerivedClassInitContext(
                             classDeclaration.symbol.classId,
                             mutableMapOf()
                         )
-                        subGraph.traverseForwardWithoutLoops(visitor)
+                        subGraph.traverseForwardWithoutLoops(visitor, this)
                         classAnonymousFunctions[subGraph.enterNode as FunctionEnterNode] = visitor.initContextNodesMap
                     }
                 }
             }
+            // 1st traverse class cfg for context nodes collecting
+            val visitor = ForwardCfgVisitor(classDeclaration.symbol.classId, classAnonymousFunctions, primaryConstructorParams)
+            classCfg.traverseForwardWithoutLoops(visitor, this)
+            classInitContextNodesMap.putAll(visitor.initContextNodesMap)
         }
-        // 1st traverse class cfg for contextnodes collecting
-        val visitor = ForwardCfgVisitor(classDeclaration.symbol.classId, classAnonymousFunctions, primaryConstructorParams)
-        classCfg.traverseForwardWithoutLoops(visitor)
-        classInitContextNodesMap.putAll(visitor.initContextNodesMap)
     }
 }

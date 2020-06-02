@@ -61,3 +61,40 @@ FILE: inher.kt
         }
 
     }
+    public open class C : R|kotlin/Any| {
+        public constructor(c1: R|kotlin/String|, c2: R|kotlin/Int|): R|C| {
+            super<R|kotlin/Any|>()
+        }
+
+        public open val c1: R|kotlin/String| = R|<local>/c1|
+            public get(): R|kotlin/String|
+
+        public final val c3: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+        init {
+            this@R|/C|.R|/C.c3| = this@R|/C|.R|/C.baseCall|().R|kotlin/String.plus|(R|<local>/c2|)
+        }
+
+        public open fun baseCall(): R|kotlin/String| {
+            ^baseCall String(a6.toString())
+        }
+
+        private final fun wrongCall(): R|kotlin/Int| {
+            ^wrongCall this@R|/C|.R|/C.c1|.R|kotlin/String.length|
+        }
+
+    }
+    public final class D : R|C| {
+        public constructor(c1: R|kotlin/String|, c2: R|kotlin/Int|): R|D| {
+            super<R|C|>(R|<local>/c1|, R|<local>/c2|)
+        }
+
+        public final override val c1: R|kotlin/String| = R|<local>/c1|
+            public get(): R|kotlin/String|
+
+        public final override fun baseCall(): R|kotlin/String| {
+            ^baseCall this@R|/D|.R|/C.c3|.R|kotlin/String.length|.R|kotlin/Any.toString|().R|kotlin/String.plus|(String(s)).R|kotlin/String.plus|(this@R|/D|.R|/D.c1|)
+        }
+
+    }

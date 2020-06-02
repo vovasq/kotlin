@@ -14,14 +14,11 @@ object LeakingThisChecker : FirDeclarationChecker<FirRegularClass>() {
 
     override fun check(declaration: FirRegularClass, context: CheckerContext, reporter: DiagnosticReporter) {
 
-        val maxResolvedCallLevel = 100
-        val maxResolvedSuperTypesLevel = 4
+        val maxCallResolved = 100
+        val maxSuperTypesResolved = 6
 
-        val classInitContext = if (declaration.isDerivedClass())
-            DerivedClassInitContext(context.session, declaration)
-        else BaseClassInitContext(declaration)
-
-        val analyzer = InitContextAnalyzer(classInitContext, reporter, maxResolvedCallLevel, maxResolvedSuperTypesLevel)
+        val classInitContext = createClassInitContext(declaration, context.session)
+        val analyzer = InitContextAnalyzer(classInitContext, reporter, maxCallResolved, maxSuperTypesResolved)
         analyzer.analyze()
     }
 }

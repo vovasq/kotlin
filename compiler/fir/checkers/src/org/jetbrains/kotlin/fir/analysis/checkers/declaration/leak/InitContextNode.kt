@@ -9,7 +9,7 @@ import org.jetbrains.kotlin.fir.resolve.dfa.cfg.CFGNode
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 
-internal class InitContextNode(
+class InitContextNode(
     val cfgNode: CFGNode<*>,
     val accessedMembers: List<FirCallableSymbol<*>>,
     val accessedProperties: List<FirVariableSymbol<*>>,
@@ -29,7 +29,7 @@ internal class InitContextNode(
     }
 }
 
-internal enum class ContextNodeType {
+enum class ContextNodeType {
     ASSIGNMENT_OR_INITIALIZER,
     PROPERTY_QUALIFIED_ACCESS,
     PROPERTY_SAFE_QUALIFIED_ACCESS,

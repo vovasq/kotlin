@@ -25,7 +25,7 @@ open class A(
 
 class B(
     override val a1: String,
-    val b1 : String,
+    val b1: String,
     p2: Int,
     p3: String
 ) : A(a1, p2, p3) {
@@ -43,9 +43,37 @@ class B(
 //        return "a6.toString()"
 //    }
 
-    private fun wrongCall(){
+    private fun wrongCall() {
         <!POSSIBLE_LEAKING_THIS_IN_CONSTRUCTOR!>b2<!>.length
     }
 
+}
+
+
+open class C(
+    open val c1: String,
+    c2: Int
+) {
+
+    val c3: String
+
+    init {
+        c3 = baseCall() + c2
+    }
+
+    open fun baseCall(): String {
+        return "a6.toString()"
+    }
+
+    private fun wrongCall():Int {
+        return c1.length
+    }
+}
+
+
+class D(override val c1: String, c2:Int):C(c1,c2){
+    override fun baseCall(): String {
+        return <!POSSIBLE_LEAKING_THIS_IN_CONSTRUCTOR!>c3<!>.length.toString() + "s" + c1
+    }
 }
 
