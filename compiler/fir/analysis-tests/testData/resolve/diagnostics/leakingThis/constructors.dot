@@ -216,60 +216,96 @@ digraph constructors_kt {
 
     subgraph cluster_20 {
         color=red
-        99 [label="Enter class B" style="filled" fillcolor=red];
-        subgraph cluster_21 {
+        93 [label="Enter function <init>" style="filled" fillcolor=red];
+        95 [label="Access variable R|<local>/p0|"];
+        96 [label="Delegated constructor call: this<R|B|>(...)"];
+        97 [label="Access variable R|<local>/p1|"];
+        98 [label="Assignment: R|/B.p3|"];
+        94 [label="Exit function <init>" style="filled" fillcolor=red];
+    }
+    93 -> {95};
+    95 -> {96};
+    96 -> {97};
+    97 -> {98};
+    98 -> {94};
+
+    subgraph cluster_21 {
+        color=red
+        99 [label="Enter function <init>" style="filled" fillcolor=red];
+        101 [label="Access variable R|<local>/p0|"];
+        102 [label="Delegated constructor call: this<R|B|>(...)"];
+        103 [label="Access variable R|<local>/p0|"];
+        104 [label="Access variable R|<local>/i|"];
+        105 [label="Function call: R|<local>/i|.R|kotlin/Any.toString|()"];
+        106 [label="Function call: R|<local>/p0|.R|kotlin/String.plus|(...)"];
+        107 [label="Assignment: R|/B.p3|"];
+        100 [label="Exit function <init>" style="filled" fillcolor=red];
+    }
+    99 -> {101};
+    101 -> {102};
+    102 -> {103};
+    103 -> {104};
+    104 -> {105};
+    105 -> {106};
+    106 -> {107};
+    107 -> {100};
+
+    subgraph cluster_22 {
+        color=red
+        114 [label="Enter class B" style="filled" fillcolor=red];
+        subgraph cluster_23 {
             color=blue
             89 [label="Enter function setter" style="filled" fillcolor=red];
             90 [label="Exit function setter" style="filled" fillcolor=red];
         }
-        subgraph cluster_22 {
+        subgraph cluster_24 {
             color=blue
             87 [label="Enter function getter" style="filled" fillcolor=red];
             88 [label="Exit function getter" style="filled" fillcolor=red];
         }
-        subgraph cluster_23 {
+        subgraph cluster_25 {
             color=blue
             81 [label="Enter function getter" style="filled" fillcolor=red];
             82 [label="Exit function getter" style="filled" fillcolor=red];
         }
-        subgraph cluster_24 {
+        subgraph cluster_26 {
             color=blue
             76 [label="Enter function getter" style="filled" fillcolor=red];
             77 [label="Exit function getter" style="filled" fillcolor=red];
         }
-        subgraph cluster_25 {
+        subgraph cluster_27 {
             color=blue
             78 [label="Enter property" style="filled" fillcolor=red];
             80 [label="Access variable R|<local>/p0|"];
             79 [label="Exit property" style="filled" fillcolor=red];
         }
-        subgraph cluster_26 {
+        subgraph cluster_28 {
             color=blue
             83 [label="Enter property" style="filled" fillcolor=red];
             85 [label="Access variable R|<local>/p0|"];
             86 [label="Access variable R|kotlin/String.length|"];
             84 [label="Exit property" style="filled" fillcolor=red];
         }
-        subgraph cluster_27 {
+        subgraph cluster_29 {
             color=blue
             91 [label="Enter property" style="filled" fillcolor=red];
             92 [label="Exit property" style="filled" fillcolor=red];
         }
-        subgraph cluster_28 {
+        subgraph cluster_30 {
             color=blue
-            93 [label="Enter init block" style="filled" fillcolor=red];
-            subgraph cluster_29 {
+            108 [label="Enter init block" style="filled" fillcolor=red];
+            subgraph cluster_31 {
                 color=blue
-                95 [label="Enter block"];
-                96 [label="Const: String()"];
-                97 [label="Assignment: R|/B.p3|"];
-                98 [label="Exit block"];
+                110 [label="Enter block"];
+                111 [label="Const: String()"];
+                112 [label="Assignment: R|/B.p3|"];
+                113 [label="Exit block"];
             }
-            94 [label="Exit init block" style="filled" fillcolor=red];
+            109 [label="Exit init block" style="filled" fillcolor=red];
         }
-        100 [label="Exit class B" style="filled" fillcolor=red];
+        115 [label="Exit class B" style="filled" fillcolor=red];
     }
-    99 -> {78} [color=green];
+    114 -> {78} [color=green];
     78 -> {80};
     79 -> {83} [color=green];
     80 -> {79};
@@ -280,14 +316,14 @@ digraph constructors_kt {
     86 -> {84};
     81 -> {82};
     91 -> {92};
-    92 -> {93} [color=green];
+    92 -> {108} [color=green];
     87 -> {88};
     89 -> {90};
-    93 -> {95};
-    94 -> {100} [color=green];
-    95 -> {96};
-    96 -> {97};
-    97 -> {98};
-    98 -> {94};
+    108 -> {110};
+    109 -> {115} [color=green];
+    110 -> {111};
+    111 -> {112};
+    112 -> {113};
+    113 -> {109};
 
 }

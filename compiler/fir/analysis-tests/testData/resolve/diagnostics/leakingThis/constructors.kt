@@ -30,13 +30,13 @@ class B(p0: String) {
     val p2: Int = p0.length
     var p3: String
 
-//    constructor(p0: String, p1: String):this(p0){
-//        p3 = p1
-//    }
-//
-//    constructor(p0: String, i: Int):this(p0){
-//        p3 = p0 + i.toString()
-//    }
+    constructor(p0: String, p1: String):this(p0){
+        p3 = p1
+    }
+
+    constructor(p0: String, i: Int):this(p0){
+        p3 = p0 + i.toString()
+    }
 
     init {
         p3 = ""

@@ -52,6 +52,16 @@ FILE: constructors.kt
             public get(): R|kotlin/String|
             public set(value: R|kotlin/String|): R|kotlin/Unit|
 
+        public constructor(p0: R|kotlin/String|, p1: R|kotlin/String|): R|B| {
+            this<R|B|>(R|<local>/p0|)
+            this@R|/B|.R|/B.p3| = R|<local>/p1|
+        }
+
+        public constructor(p0: R|kotlin/String|, i: R|kotlin/Int|): R|B| {
+            this<R|B|>(R|<local>/p0|)
+            this@R|/B|.R|/B.p3| = R|<local>/p0|.R|kotlin/String.plus|(R|<local>/i|.R|kotlin/Any.toString|())
+        }
+
         init {
             this@R|/B|.R|/B.p3| = String()
         }
