@@ -11,10 +11,7 @@ import org.jetbrains.kotlin.fir.analysis.cfa.traverseForwardWithoutLoops
 import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.CFGNode
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.ConstExpressionNode
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.ControlFlowGraph
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.FunctionCallNode
+import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
 import org.jetbrains.kotlin.fir.resolve.dfa.controlFlowGraph
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
@@ -73,10 +70,7 @@ internal class InitContextAnalyzer(
     private fun runContextAnalysis(curInitContext: ClassInitContext) {
         if (curInitContext.isCfgAvailable)
             curInitContext.classCfg.traverseForwardWithoutLoops(
-                ForwardCfgVisitor(
-                    curInitContext.classId,
-                    curInitContext.classAnonymousFunctions
-                ),
+                LightCfgVisitor(),
                 curInitContext,
                 analyze = this::analyze
             )
@@ -106,20 +100,23 @@ internal class InitContextAnalyzer(
             }
             else -> return
         }
-
     }
 
     private fun resolveCall(contextNode: InitContextNode, curInitContext: ClassInitContext) {
 //        try { TODO: uncomment after all tests
         val overrideCall = initContext.overrideFunctions?.get(contextNode.callableName)
-        val callableCfg =
-            if (overrideCall != null) overrideCall.controlFlowGraphReference.controlFlowGraph!! else contextNode.callableCFG ?: return
-        val callableBodyVisitor = ForwardCfgVisitor(classId, curInitContext.classAnonymousFunctions)
-        if (resolvedCalls.add(contextNode.callableSymbol ?: return)) {
+        var callableCfg = contextNode.callableCFG ?: return
+        var callableSymbol = contextNode.callableSymbol
+        if (overrideCall != null) {
+            callableCfg = overrideCall.controlFlowGraphReference.controlFlowGraph ?: return
+            callableSymbol = overrideCall.symbol
+        }
+        if (resolvedCalls.add(callableSymbol ?: return)) {
+            val callableBodyVisitor = ForwardCfgVisitor(classId, curInitContext.classAnonymousFunctions)
             callableCfg.traverseForwardWithoutLoops(callableBodyVisitor, curInitContext)
             curInitContext.classInitContextNodesMap.putAll(callableBodyVisitor.initContextNodesMap)
         }
-        callableCfg.traverseForwardWithoutLoops(callableBodyVisitor, curInitContext, analyze = this::analyze)
+        callableCfg.traverseForwardWithoutLoops(LightCfgVisitor(), curInitContext, analyze = this::analyze)
 //        } catch (e: Exception) {
 //        }
     }
@@ -129,20 +126,20 @@ internal class InitContextAnalyzer(
     }
 
     private fun InitContextNode.checkIfPropertyAccessOk(): Boolean {
+        fun report(): Boolean {
+            reporter.report(cfgNode.fir.source)
+            reportedProperties.add(firstAccessedProperty)
+            return true
+        }
         if (isPropertyOfSuperType()) {
             if (firstAccessedProperty.callableId.callableName !in initializedProperties.map { it.callableId.callableName }) {
-                reporter.report(cfgNode.fir.source)
-                reportedProperties.add(firstAccessedProperty)
-                return true
+                return report()
             }
-            return false
         } else if (accessedProperties.any {
                 it !in initializedProperties && it !in reportedProperties
             }
         ) {
-            reporter.report(cfgNode.fir.source)
-            reportedProperties.add(firstAccessedProperty)
-            return true
+            return report()
         }
         return false
     }
@@ -175,7 +172,6 @@ internal class InitContextAnalyzer(
     private val InitContextNode.callableName: Name?
         get() = (cfgNode as FunctionCallNode).fir.calleeReference.resolvedSymbolAsNamedFunction?.fir?.name
 
-
     private val InitContextNode.callableSymbol: FirCallableSymbol<*>?
         get() = (cfgNode as FunctionCallNode).fir.calleeReference.resolvedSymbolAsNamedFunction
 
@@ -188,5 +184,10 @@ internal class InitContextAnalyzer(
     private val ClassInitContext.overrideFunctions: MutableMap<Name, FirSimpleFunction>?
         get() = (this as? DerivedClassInitContext)?.overrideFunctions
 
+    private class LightCfgVisitor : ControlFlowGraphVisitorVoid() {
+        override fun visitNode(node: CFGNode<*>) {
+//            very light :)))
+        }
+    }
 
 }
