@@ -38,6 +38,16 @@ FILE: inlineAndLambdas.kt
         public final val p7: R|(kotlin/Unit) -> kotlin/String|
             public get(): R|(kotlin/Unit) -> kotlin/String|
 
+        public final val p8: R|kotlin/String|
+            public get(): R|kotlin/String| {
+                ^ String(dasd).R|kotlin/String.plus|(this@R|/A|.R|/A.p1|)
+            }
+
+        public final val p9: R|kotlin/String|
+            public get(): R|kotlin/String| {
+                ^ String(dasd).R|kotlin/String.plus|(this@R|/A|.R|/A.p1|)
+            }
+
         init {
             lval local1: R|() -> kotlin/Int| = fun <anonymous>(): R|kotlin/Int| {
                 ^ Int(22).R|kotlin/Int.plus|(this@R|/A|.R|/A.p1|.R|kotlin/String.length|)
@@ -57,7 +67,34 @@ FILE: inlineAndLambdas.kt
                 ^ String(ewqeqweqw)
             }
 
+            this@R|/A|.R|/A.p8|.R|kotlin/String.length|
             this@R|/A|.R|/A.p1| = String(asa)
+            this@R|/A|.R|/A.p9|.R|kotlin/String.length|
+        }
+
+    }
+    public final class B : R|kotlin/Any| {
+        public constructor(p1: R|kotlin/String|): R|B| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val p1: R|kotlin/String| = R|<local>/p1|
+            public get(): R|kotlin/String|
+
+        public final val p2: R|kotlin/String|
+            public get(): R|kotlin/String| {
+                ^ this@R|/B|.R|/B.p1|.R|kotlin/String.plus|(String(sda)).R|kotlin/String.plus|(this@R|/B|.R|/B.p3|).R|kotlin/String.plus|(this@R|/B|.R|/B.p4|.R|kotlin/String.length|.R|kotlin/Any.toString|())
+            }
+
+        public final val p3: R|kotlin/String| = String(p3)
+            public get(): R|kotlin/String|
+
+        public final val p4: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+        init {
+            this@R|/B|.R|/B.p2|.R|kotlin/String.length|
+            this@R|/B|.R|/B.p4| = String(asd)
         }
 
     }
