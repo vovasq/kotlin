@@ -2,7 +2,7 @@
 class D {
     val p1 = memberCall1()
     val p2: String
-
+    lateinit var p3: String
     init {
         p2 = "dsadsa"
     }

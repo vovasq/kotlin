@@ -94,7 +94,7 @@ internal class ForwardCfgVisitor(
                     cfgNode = node,
                     accessedMembers = accessedProperties,
                     accessedProperties = accessedProperties,
-                    nodeType = ContextNodeType.PROPERTY_QUALIFIED_ACCESS
+                    nodeType = if(member.fir.status.isLateInit) ContextNodeType.NOT_AFFECTED else ContextNodeType.PROPERTY_QUALIFIED_ACCESS
                 )
                 initContextNodes[node] = lastQualifiedAccessContextNode!!
             }

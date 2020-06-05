@@ -10,6 +10,10 @@ FILE: propertyInit.kt
         public final val p2: R|kotlin/String|
             public get(): R|kotlin/String|
 
+        public final lateinit var p3: R|kotlin/String|
+            public get(): R|kotlin/String|
+            public set(value: R|kotlin/String|): R|kotlin/Unit|
+
         init {
             this@R|/D|.R|/D.p2| = String(dsadsa)
         }
