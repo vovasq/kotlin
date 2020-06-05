@@ -22,6 +22,7 @@ import org.jetbrains.kotlin.name.Name
 
 @OptIn(ExperimentalStdlibApi::class)
 internal class InitContextAnalyzer(
+    private val session: FirSession,
     private val initContext: ClassInitContext,
     private val reporter: DiagnosticReporter,
     private val maxCallResolved: Int,
@@ -51,8 +52,8 @@ internal class InitContextAnalyzer(
 
         for (typeRef in initContext.classDeclaration.superTypeRefs) {
             if (superTypesResolved < maxSuperTypesResolved) {
-                val superClassDeclaration = typeRef.getFirSuperTypeRegularClass(initContext.session!!) ?: continue
-                val superClassInitContext = createClassInitContext(superClassDeclaration, initContext.session!!)
+                val superClassDeclaration = typeRef.getFirSuperTypeRegularClass(session) ?: continue
+                val superClassInitContext = createClassInitContext(superClassDeclaration)
                 initContext.superTypesInitContexts?.addFirst(superClassInitContext)
                 superTypesResolved++
             }
@@ -205,9 +206,6 @@ internal class InitContextAnalyzer(
             is QualifiedAccessNode -> cfgNode.fir.calleeReference.resolvedSymbolAsProperty
             else -> null
         }
-
-    private val ClassInitContext.session: FirSession?
-        get() = (this as? DerivedClassInitContext)?.session
 
     private val ClassInitContext.superTypesInitContexts: ArrayDeque<ClassInitContext>?
         get() = (this as? DerivedClassInitContext)?.superTypesInitContexts

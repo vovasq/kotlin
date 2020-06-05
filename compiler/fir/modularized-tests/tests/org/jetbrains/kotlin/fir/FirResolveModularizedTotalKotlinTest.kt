@@ -90,8 +90,6 @@ class FirResolveModularizedTotalKotlinTest : AbstractModularizedTest() {
             }
         }
 
-
-
         val disambiguatedName = moduleData.disambiguatedName()
         dumpFir(disambiguatedName, moduleData, firFiles)
         dumpFirHtml(disambiguatedName, moduleData, firFiles)
@@ -132,7 +130,7 @@ class FirResolveModularizedTotalKotlinTest : AbstractModularizedTest() {
         val baseName = qualifiedName
         var disambiguatedName = baseName
         var counter = 1
-        while(!dumpedModules.add(disambiguatedName)) {
+        while (!dumpedModules.add(disambiguatedName)) {
             disambiguatedName = "$baseName.${counter++}"
         }
         return disambiguatedName

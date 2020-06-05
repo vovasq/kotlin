@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak
 
-import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.name.Name
@@ -13,7 +12,6 @@ import org.jetbrains.kotlin.name.Name
 
 @OptIn(ExperimentalStdlibApi::class)
 internal class DerivedClassInitContext(
-    val session: FirSession,
     classDeclaration: FirRegularClass
 ) : ClassInitContext(classDeclaration) {
 

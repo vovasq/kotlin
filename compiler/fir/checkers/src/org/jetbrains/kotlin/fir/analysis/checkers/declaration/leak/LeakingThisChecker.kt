@@ -16,9 +16,8 @@ object LeakingThisChecker : FirDeclarationChecker<FirRegularClass>() {
 
         val maxCallResolved = 100
         val maxSuperTypesResolved = 6
-
-        val classInitContext = createClassInitContext(declaration, context.session)
-        val analyzer = InitContextAnalyzer(classInitContext, reporter, maxCallResolved, maxSuperTypesResolved)
+        val classInitContext = createClassInitContext(declaration)
+        val analyzer = InitContextAnalyzer(context.session, classInitContext, reporter, maxCallResolved, maxSuperTypesResolved)
         analyzer.analyze()
     }
 }

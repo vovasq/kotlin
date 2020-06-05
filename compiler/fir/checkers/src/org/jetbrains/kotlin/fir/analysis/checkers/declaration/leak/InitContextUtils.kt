@@ -5,7 +5,6 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak
 
-import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
@@ -17,9 +16,9 @@ import org.jetbrains.kotlin.name.ClassId
 import java.util.*
 
 
-internal fun createClassInitContext(declaration: FirRegularClass, session: FirSession) =
+internal fun createClassInitContext(declaration: FirRegularClass) =
     if (declaration.isDerivedClass())
-        DerivedClassInitContext(session, declaration)
+        DerivedClassInitContext(declaration)
     else ClassInitContext(declaration)
 
 internal class ForwardCfgVisitor(
