@@ -104,7 +104,6 @@ internal class InitContextAnalyzer(
         }
     }
 
-
     private fun resolveCallOrPropertyGetter(contextNode: InitContextNode, curInitContext: ClassInitContext) {
 //        try { TODO: uncomment after all tests
 
@@ -124,7 +123,7 @@ internal class InitContextAnalyzer(
             contextNode.affectingNodes.addAll(callableBodyVisitor.initContextNodes.values)
         }
         callableCfg.traverseForwardWithoutLoops(LightCfgVisitor(), curInitContext, analyze = this::analyze)
-        if(contextNode.nodeType == ContextNodeType.PROPERTY_QUALIFIED_ACCESS){
+        if (contextNode.nodeType == ContextNodeType.PROPERTY_QUALIFIED_ACCESS) {
             if (contextNode.isSuccessfullyInitNode()) {
                 contextNode.confirmInitForCandidate()
                 initializedProperties.add(contextNode.initCandidate)
@@ -150,19 +149,42 @@ internal class InitContextAnalyzer(
             reportedProperties.add(firstAccessedProperty)
             return true
         }
+
+//        fun check(): Boolean {
+//            for (p in initializedProperties) {
+//                val pname = p.callableId.callableName.asString()
+//                val fname = firstAccessedProperty.callableId.callableName.asString()
+//                println("p = $pname, fname = $fname")
+//                if (pname.equals(fname)) {
+//                    return true
+//                }
+//            }
+//            for (p in reportedProperties) {
+//                val pname = p.callableId.callableName.asString()
+//                val fname = firstAccessedProperty.callableId.callableName.asString()
+//                println("rep p = $pname, rep fname = $fname")
+//                if (pname.equals(fname)) {
+//                    return true
+//                }
+//            }
+//            return false
+//        }
+
         if (firstAccessedProperty.fir.getter != null && firstAccessedProperty.fir.getter!!.isNotEmpty
             && firstAccessedProperty !in initializedProperties && firstAccessedProperty !in reportedProperties
         ) {
             resolveCallOrPropertyGetter(this, initContext)
         }
         if (isPropertyOfSuperType()) {
-            if (firstAccessedProperty.callableId.callableName !in initializedProperties.map { it.callableId.callableName }) {
+            if (firstAccessedProperty.callableId.callableName.asString() !in initializedProperties.map { it.callableId.callableName.asString() }
+                && firstAccessedProperty.callableId.callableName.asString() !in reportedProperties.map { it.callableId.callableName.asString() }
+            ) {
+
+                println("super in report: ${firstAccessedProperty.callableId.callableName} inited props: ${initializedProperties.map { it.callableId.callableName }}, reported: ${reportedProperties.map { it.callableId.callableName }}")
                 return report()
             }
-        } else if (accessedProperties.any {
-                it !in initializedProperties && it !in reportedProperties
-            }
-        ) {
+        } else if (firstAccessedProperty !in initializedProperties && firstAccessedProperty !in reportedProperties) {
+            println("in report: ${firstAccessedProperty.callableId.callableName} inited props: ${initializedProperties.map { it.callableId.callableName }}, reported: ${reportedProperties.map { it.callableId.callableName }}")
             return report()
         }
         return false
