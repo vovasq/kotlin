@@ -29,7 +29,7 @@ class A {
         p7 = { "ewqeqweqw" }
         <!POSSIBLE_LEAKING_THIS_IN_CONSTRUCTOR!>p8<!>.length
         p1 = "asa"
-        <!POSSIBLE_LEAKING_THIS_IN_CONSTRUCTOR!>p9<!>.length
+        p9.length
     }
 }
 

@@ -61,9 +61,9 @@ FILE: inher.kt
         }
 
     }
-    public open class C : R|kotlin/Any| {
+    public open class C : R|E| {
         public constructor(c1: R|kotlin/String|, c2: R|kotlin/Int|): R|C| {
-            super<R|kotlin/Any|>()
+            super<R|E|>(R|<local>/c2|)
         }
 
         public open val c1: R|kotlin/String| = R|<local>/c1|
@@ -73,7 +73,11 @@ FILE: inher.kt
             public get(): R|kotlin/String|
 
         init {
-            this@R|/C|.R|/C.c3| = this@R|/C|.R|/C.baseCall|().R|kotlin/String.plus|(R|<local>/c2|)
+            this@R|/C|.R|/C.c3| = this@R|/C|.R|/C.baseCall|().R|kotlin/String.plus|(R|<local>/c2|.R|kotlin/Any.toString|()).R|kotlin/String.plus|(this@R|/C|.R|/E.e1|)
+        }
+
+        public open override fun initCall(): R|kotlin/String| {
+            ^initCall this@R|/C|.R|/E.e1|.R|kotlin/String.length|
         }
 
         public open fun baseCall(): R|kotlin/String| {
@@ -85,16 +89,32 @@ FILE: inher.kt
         }
 
     }
-    public final class D : R|C| {
+    public open class D : R|C| {
         public constructor(c1: R|kotlin/String|, c2: R|kotlin/Int|): R|D| {
             super<R|C|>(R|<local>/c1|, R|<local>/c2|)
         }
 
-        public final override val c1: R|kotlin/String| = R|<local>/c1|
+        public open override val c1: R|kotlin/String| = R|<local>/c1|
             public get(): R|kotlin/String|
 
-        public final override fun baseCall(): R|kotlin/String| {
+        public open override fun baseCall(): R|kotlin/String| {
             ^baseCall this@R|/D|.R|/C.c3|.R|kotlin/String.length|.R|kotlin/Any.toString|().R|kotlin/String.plus|(String(s)).R|kotlin/String.plus|(this@R|/D|.R|/D.c1|)
+        }
+
+    }
+    public open class E : R|kotlin/Any| {
+        public constructor(c2: R|kotlin/Int|): R|E| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val c2: R|kotlin/Int| = R|<local>/c2|
+            public get(): R|kotlin/Int|
+
+        public final val e1: R|kotlin/String| = R|<local>/c2|.R|kotlin/Any.toString|().R|kotlin/String.plus|(this@R|/E|.R|/E.initCall|())
+            public get(): R|kotlin/String|
+
+        public open fun initCall(): R|kotlin/String| {
+            ^initCall String()
         }
 
     }

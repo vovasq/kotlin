@@ -90,11 +90,14 @@ internal class ForwardCfgVisitor(
                 // if it is a member and it is qualifiedAccess then it is property :)
                 val member = node.fir.calleeReference.resolvedSymbolAsProperty!!
                 accessedProperties.add(member)
+                var nodeType = ContextNodeType.PROPERTY_QUALIFIED_ACCESS
+                if (member.fir.status.isLateInit || member.fir.delegate != null)
+                    nodeType = ContextNodeType.NOT_AFFECTED
                 lastQualifiedAccessContextNode = checkAndBuildNodeContext(
                     cfgNode = node,
                     accessedMembers = accessedProperties,
                     accessedProperties = accessedProperties,
-                    nodeType = if(member.fir.status.isLateInit) ContextNodeType.NOT_AFFECTED else ContextNodeType.PROPERTY_QUALIFIED_ACCESS
+                    nodeType = nodeType
                 )
                 initContextNodes[node] = lastQualifiedAccessContextNode!!
             }
@@ -172,7 +175,6 @@ internal class ForwardCfgVisitor(
             isInPropertyInitializer = false
             visitNode(node)
         }
-
     }
 
     override fun visitEnterSafeCallNode(node: EnterSafeCallNode) {

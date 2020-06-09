@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.fir.analysis.cfa.traverseForwardWithoutLoops
 import org.jetbrains.kotlin.fir.analysis.diagnostics.DiagnosticReporter
 import org.jetbrains.kotlin.fir.analysis.diagnostics.FirErrors
 import org.jetbrains.kotlin.fir.declarations.FirPropertyAccessor
+import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
 import org.jetbrains.kotlin.fir.resolve.dfa.controlFlowGraph
@@ -40,6 +41,7 @@ internal class InitContextAnalyzer(
     private val classId: ClassId
         get() = initContext.classId
 
+
     fun analyze() {
         if (initContext.isCfgAvailable)
             if (initContext.isDerivedClassAndOverridesFun)
@@ -48,7 +50,8 @@ internal class InitContextAnalyzer(
                 runContextAnalysis(initContext)
     }
 
-    private fun runSuperTypesAnalysis() {
+    private fun runSuperTypesAnalysis()
+    {
 
         for (typeRef in initContext.classDeclaration.superTypeRefs) {
             if (superTypesResolved < maxSuperTypesResolved) {
@@ -61,12 +64,47 @@ internal class InitContextAnalyzer(
 
         for (superTypeContext in initContext.superTypesInitContexts!!) {
             runContextAnalysis(superTypeContext)
-            updateMainInitContext()
+//            updateMainInitContext()
+        }
+
+    }
+    private fun runSuperTypesAnalysisWithRecurs() {
+        val stack = ArrayDeque<FirRegularClass>()
+        for (typeRef in initContext.classDeclaration.superTypeRefs) {
+            if (superTypesResolved < maxSuperTypesResolved) {
+                stack.addFirst(typeRef.getFirSuperTypeRegularClass(session) ?: continue)
+                superTypesResolved++
+            }
+        }
+        while (stack.isNotEmpty()) {
+            val superClassDeclaration = stack.removeFirst()
+            val superClassInitContext = createClassInitContext(superClassDeclaration)
+            if (!superClassInitContext.isDerivedClassAndOverridesFun || superTypesResolved < maxSuperTypesResolved)
+                break
+            initContext.superTypesInitContexts?.addFirst(superClassInitContext)
+            for (typeRef in superClassDeclaration.superTypeRefs) {
+                if (superTypesResolved < maxSuperTypesResolved) {
+                    stack.addFirst(typeRef.getFirSuperTypeRegularClass(session) ?: continue)
+                    superTypesResolved++
+                }
+            }
+        }
+//        val functions = initContext.overrideFunctions!!.map { it.value.name }.toList()
+//        println(functions)
+
+        for (superTypeContext in initContext.superTypesInitContexts!!) {
+            runContextAnalysis(superTypeContext)
+            updateMainInitContext(superTypeContext)
         }
     }
 
-    private fun updateMainInitContext() {
-//        TODO("Not yet implemented")
+    private fun updateMainInitContext(curInitContext: ClassInitContext) {
+        initContext.anonymousFunctionsContext.putAll(curInitContext.anonymousFunctionsContext)
+        initContext.initContextNodes.putAll(curInitContext.initContextNodes)
+        if (initContext.overrideFunctions != null && curInitContext.overrideFunctions != null)
+            for (pair in curInitContext.overrideFunctions!!) {
+                initContext.overrideFunctions!!.putIfAbsent(pair.key, pair.value)
+            }
     }
 
     private fun runContextAnalysis(curInitContext: ClassInitContext) {
@@ -126,7 +164,7 @@ internal class InitContextAnalyzer(
         if (contextNode.nodeType == ContextNodeType.PROPERTY_QUALIFIED_ACCESS) {
             if (contextNode.isSuccessfullyInitNode()) {
                 contextNode.confirmInitForCandidate()
-                initializedProperties.add(contextNode.initCandidate)
+                initializedProperties.add(contextNode.firstAccessedProperty)
             }
         }
         //        } catch (e: Exception) {
@@ -147,29 +185,8 @@ internal class InitContextAnalyzer(
         fun report(): Boolean {
             reporter.report(cfgNode.fir.source)
             reportedProperties.add(firstAccessedProperty)
-            return true
+            return false
         }
-
-//        fun check(): Boolean {
-//            for (p in initializedProperties) {
-//                val pname = p.callableId.callableName.asString()
-//                val fname = firstAccessedProperty.callableId.callableName.asString()
-//                println("p = $pname, fname = $fname")
-//                if (pname.equals(fname)) {
-//                    return true
-//                }
-//            }
-//            for (p in reportedProperties) {
-//                val pname = p.callableId.callableName.asString()
-//                val fname = firstAccessedProperty.callableId.callableName.asString()
-//                println("rep p = $pname, rep fname = $fname")
-//                if (pname.equals(fname)) {
-//                    return true
-//                }
-//            }
-//            return false
-//        }
-
         if (firstAccessedProperty.fir.getter != null && firstAccessedProperty.fir.getter!!.isNotEmpty
             && firstAccessedProperty !in initializedProperties && firstAccessedProperty !in reportedProperties
         ) {
@@ -179,7 +196,6 @@ internal class InitContextAnalyzer(
             if (firstAccessedProperty.callableId.callableName.asString() !in initializedProperties.map { it.callableId.callableName.asString() }
                 && firstAccessedProperty.callableId.callableName.asString() !in reportedProperties.map { it.callableId.callableName.asString() }
             ) {
-
                 println("super in report: ${firstAccessedProperty.callableId.callableName} inited props: ${initializedProperties.map { it.callableId.callableName }}, reported: ${reportedProperties.map { it.callableId.callableName }}")
                 return report()
             }
@@ -187,7 +203,7 @@ internal class InitContextAnalyzer(
             println("in report: ${firstAccessedProperty.callableId.callableName} inited props: ${initializedProperties.map { it.callableId.callableName }}, reported: ${reportedProperties.map { it.callableId.callableName }}")
             return report()
         }
-        return false
+        return true
     }
 
     private fun InitContextNode.isPropertyOfSuperType(): Boolean {
@@ -201,15 +217,12 @@ internal class InitContextAnalyzer(
 
     private fun InitContextNode.isSuccessfullyInitNode(): Boolean =
         affectingNodes.all {
-            it.cfgNode is ConstExpressionNode
-                    || it.nodeType == ContextNodeType.UNRESOLVABLE_FUN_CALL
-                    || it.nodeType == ContextNodeType.NOT_AFFECTED
-                    || it.nodeType == ContextNodeType.PRIMARY_CONSTRUCTOR_PARAM_QUALIFIED_ACCESS
-                    || it.nodeType == ContextNodeType.NOT_MEMBER_QUALIFIED_ACCESS
+            it.nodeType != ContextNodeType.PROPERTY_QUALIFIED_ACCESS
                     || (it.nodeType == ContextNodeType.PROPERTY_QUALIFIED_ACCESS
                     && it.checkIfPropertyAccessOk()
-                    && it.firstAccessedProperty.callableId.classId == classId
                     && initializedProperties.contains(it.firstAccessedProperty))
+//                    && it.firstAccessedProperty.callableId.classId == classId // not fact
+//                    && initializedProperties.contains(it.firstAccessedProperty))
         }
 
     private val InitContextNode.callableCFG: ControlFlowGraph?

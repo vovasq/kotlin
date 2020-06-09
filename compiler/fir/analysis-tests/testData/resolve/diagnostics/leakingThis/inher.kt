@@ -10,7 +10,7 @@ open class A(
     open val a6: Int
 
     init {
-        a6 = <!POSSIBLE_LEAKING_THIS_IN_CONSTRUCTOR!>a5<!>.length
+        a6 = a5.length
         baseCall()
     }
 
@@ -39,41 +39,47 @@ class B(
         b2 = a1
     }
 
-//    override fun baseCall(): String {
-//        return "a6.toString()"
-//    }
-
     private fun wrongCall() {
         <!POSSIBLE_LEAKING_THIS_IN_CONSTRUCTOR!>b2<!>.length
     }
 
 }
 
-
 open class C(
     open val c1: String,
     c2: Int
-) {
+):E(c2)  {
 
     val c3: String
 
     init {
-        c3 = baseCall() + c2
+        c3 = baseCall() + c2.toString() + e1
+    }
+
+    override fun initCall(): String {
+        return <!POSSIBLE_LEAKING_THIS_IN_CONSTRUCTOR!>e1<!>.length
     }
 
     open fun baseCall(): String {
         return "a6.toString()"
     }
 
-    private fun wrongCall():Int {
+    private fun wrongCall(): Int {
         return c1.length
     }
 }
 
-
-class D(override val c1: String, c2:Int):C(c1,c2){
-    override fun baseCall(): String {
-        return <!POSSIBLE_LEAKING_THIS_IN_CONSTRUCTOR!>c3<!>.length.toString() + "s" + c1
+open class D(override val c1: String, c2: Int) : C(c1, c2) {
+     override fun baseCall(): String {
+        return <!POSSIBLE_LEAKING_THIS_IN_CONSTRUCTOR!>c3<!>.length.toString()+"s"+c1
     }
 }
 
+open class E(val c2: Int) {
+
+    val e1: String = c2.toString() + initCall()
+
+    open fun initCall(): String {
+        return ""
+    }
+}

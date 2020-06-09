@@ -943,6 +943,11 @@ public class FirDiagnosticsWithLightTreeTestGenerated extends AbstractFirDiagnos
                 runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/inlineAndLambdas.kt");
             }
 
+            @TestMetadata("interfaces.kt")
+            public void testInterfaces() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/interfaces.kt");
+            }
+
             @TestMetadata("manyInitSections.kt")
             public void testManyInitSections() throws Exception {
                 runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/manyInitSections.kt");

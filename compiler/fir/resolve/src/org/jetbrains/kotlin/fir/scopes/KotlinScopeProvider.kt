@@ -93,8 +93,7 @@ data class ConeSubstitutionScopeKey(
 fun FirClass<*>.unsubstitutedScope(useSiteSession: FirSession, scopeSession: ScopeSession): FirScope {
     return scopeProvider.getUseSiteMemberScope(this, useSiteSession, scopeSession)
 }
-
-internal fun FirClass<*>.scope(
+fun FirClass<*>.scope(
     substitutor: ConeSubstitutor,
     useSiteSession: FirSession,
     scopeSession: ScopeSession,
