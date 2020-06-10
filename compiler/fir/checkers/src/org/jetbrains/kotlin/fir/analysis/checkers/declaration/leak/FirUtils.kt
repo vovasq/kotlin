@@ -8,6 +8,7 @@ package org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirProperty
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
+import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.references.FirReference
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.resolve.toSymbol
@@ -62,4 +63,13 @@ internal val FirProperty.isClassPropertyWithInitializer: Boolean
 
 internal fun FirTypeRef.getFirSuperTypeRegularClass(session: FirSession): FirRegularClass? =
     (((this as? FirResolvedTypeRef)?.type as? ConeLookupTagBasedType)?.lookupTag?.toSymbol(session)?.fir as? FirRegularClass)
+
+internal val FirRegularClass.isSuperTypeOverrideFunctions: Boolean
+    get() {
+        for (declaration in declarations) {
+            if (declaration is FirSimpleFunction && declaration.status.isOverride)
+                return true
+        }
+        return false
+    }
 

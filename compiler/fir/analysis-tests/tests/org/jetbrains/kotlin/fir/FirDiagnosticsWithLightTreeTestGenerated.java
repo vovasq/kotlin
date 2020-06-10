@@ -943,7 +943,6 @@ public class FirDiagnosticsWithLightTreeTestGenerated extends AbstractFirDiagnos
                 runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/inlineAndLambdas.kt");
             }
 
-
             @TestMetadata("manyInitSections.kt")
             public void testManyInitSections() throws Exception {
                 runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/manyInitSections.kt");
@@ -957,6 +956,11 @@ public class FirDiagnosticsWithLightTreeTestGenerated extends AbstractFirDiagnos
             @TestMetadata("propertyInit.kt")
             public void testPropertyInit() throws Exception {
                 runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/propertyInit.kt");
+            }
+
+            @TestMetadata("recursInher.kt")
+            public void testRecursInher() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/recursInher.kt");
             }
 
             @TestMetadata("simpleInitNeg.kt")

@@ -1,0 +1,227 @@
+digraph recursInher_kt {
+    graph [nodesep=3]
+    node [shape=box penwidth=2]
+    edge [penwidth=2]
+
+    subgraph cluster_0 {
+        color=red
+        0 [label="Enter function <init>" style="filled" fillcolor=red];
+        2 [label="Delegated constructor call: super<R|kotlin/Any|>()"];
+        1 [label="Exit function <init>" style="filled" fillcolor=red];
+    }
+    0 -> {2};
+    2 -> {1};
+
+    subgraph cluster_1 {
+        color=red
+        8 [label="Enter function call" style="filled" fillcolor=red];
+        9 [label="Exit function call" style="filled" fillcolor=red];
+    }
+    8 -> {9};
+
+    subgraph cluster_2 {
+        color=red
+        10 [label="Enter class C" style="filled" fillcolor=red];
+        subgraph cluster_3 {
+            color=blue
+            3 [label="Enter function getter" style="filled" fillcolor=red];
+            4 [label="Exit function getter" style="filled" fillcolor=red];
+        }
+        subgraph cluster_4 {
+            color=blue
+            5 [label="Enter property" style="filled" fillcolor=red];
+            7 [label="Function call: this@R|/C|.R|/C.call|()"];
+            6 [label="Exit property" style="filled" fillcolor=red];
+        }
+        11 [label="Exit class C" style="filled" fillcolor=red];
+    }
+    10 -> {5} [color=green];
+    5 -> {7};
+    6 -> {11} [color=green];
+    7 -> {6};
+    3 -> {4};
+
+    subgraph cluster_5 {
+        color=red
+        12 [label="Enter function <init>" style="filled" fillcolor=red];
+        14 [label="Delegated constructor call: super<R|C|>()"];
+        13 [label="Exit function <init>" style="filled" fillcolor=red];
+    }
+    12 -> {14};
+    14 -> {13};
+
+    subgraph cluster_6 {
+        color=red
+        15 [label="Enter function bCall" style="filled" fillcolor=red];
+        16 [label="Exit function bCall" style="filled" fillcolor=red];
+    }
+    15 -> {16};
+
+    subgraph cluster_7 {
+        color=red
+        17 [label="Enter function call" style="filled" fillcolor=red];
+        19 [label="Const: String(safe)"];
+        20 [label="Jump: ^call String(safe)"];
+        21 [label="Stub" style="filled" fillcolor=gray];
+        18 [label="Exit function call" style="filled" fillcolor=red];
+    }
+    17 -> {19};
+    19 -> {20};
+    20 -> {18};
+    20 -> {21} [style=dotted];
+    21 -> {18} [style=dotted];
+
+    subgraph cluster_8 {
+        color=red
+        22 [label="Enter class B" style="filled" fillcolor=red];
+        23 [label="Exit class B" style="filled" fillcolor=red];
+    }
+    22 -> {23} [color=green];
+
+    subgraph cluster_9 {
+        color=red
+        24 [label="Enter function <init>" style="filled" fillcolor=red];
+        26 [label="Delegated constructor call: super<R|B|>()"];
+        25 [label="Exit function <init>" style="filled" fillcolor=red];
+    }
+    24 -> {26};
+    26 -> {25};
+
+    subgraph cluster_10 {
+        color=red
+        32 [label="Enter function bCall" style="filled" fillcolor=red];
+        33 [label="Exit function bCall" style="filled" fillcolor=red];
+    }
+    32 -> {33};
+
+    subgraph cluster_11 {
+        color=red
+        34 [label="Enter function call" style="filled" fillcolor=red];
+        36 [label="Const: String(babah sss -> c1, a1!!)"];
+        37 [label="Access variable R|/C.c1|"];
+        38 [label="Access variable R|kotlin/String.length|"];
+        39 [label="Function call: this@R|/A|.R|/C.c1|.R|kotlin/String.length|.R|kotlin/Any.toString|()"];
+        40 [label="Function call: String(babah sss -> c1, a1!!).R|kotlin/String.plus|(...)"];
+        41 [label="Access variable R|/A.a1|"];
+        42 [label="Access variable R|kotlin/String.length|"];
+        43 [label="Function call: this@R|/A|.R|/A.a1|.R|kotlin/String.length|.R|kotlin/Any.toString|()"];
+        44 [label="Function call: String(babah sss -> c1, a1!!).R|kotlin/String.plus|(...).R|kotlin/String.plus|(...)"];
+        45 [label="Jump: ^call String(babah sss -> c1, a1!!).R|kotlin/String.plus|(this@R|/A|.R|/C.c1|.R|kotlin/String.length|.R|kotlin/Any.toString|()).R|kotlin/String.plus|(this@R|/A|.R|/A.a1|.R|kotlin/String.length|.R|kotlin/Any.toString|())"];
+        46 [label="Stub" style="filled" fillcolor=gray];
+        35 [label="Exit function call" style="filled" fillcolor=red];
+    }
+    34 -> {36};
+    36 -> {37};
+    37 -> {38};
+    38 -> {39};
+    39 -> {40};
+    40 -> {41};
+    41 -> {42};
+    42 -> {43};
+    43 -> {44};
+    44 -> {45};
+    45 -> {35};
+    45 -> {46} [style=dotted];
+    46 -> {35} [style=dotted];
+
+    subgraph cluster_12 {
+        color=red
+        47 [label="Enter class A" style="filled" fillcolor=red];
+        subgraph cluster_13 {
+            color=blue
+            27 [label="Enter function getter" style="filled" fillcolor=red];
+            28 [label="Exit function getter" style="filled" fillcolor=red];
+        }
+        subgraph cluster_14 {
+            color=blue
+            29 [label="Enter property" style="filled" fillcolor=red];
+            31 [label="Const: String(ura)"];
+            30 [label="Exit property" style="filled" fillcolor=red];
+        }
+        48 [label="Exit class A" style="filled" fillcolor=red];
+    }
+    47 -> {29} [color=green];
+    29 -> {31};
+    30 -> {48} [color=green];
+    31 -> {30};
+    27 -> {28};
+
+    subgraph cluster_15 {
+        color=red
+        49 [label="Enter function <init>" style="filled" fillcolor=red];
+        51 [label="Delegated constructor call: super<R|C|>()"];
+        50 [label="Exit function <init>" style="filled" fillcolor=red];
+    }
+    49 -> {51};
+    51 -> {50};
+
+    subgraph cluster_16 {
+        color=red
+        56 [label="Enter class BB" style="filled" fillcolor=red];
+        subgraph cluster_17 {
+            color=blue
+            52 [label="Enter function getter" style="filled" fillcolor=red];
+            53 [label="Exit function getter" style="filled" fillcolor=red];
+        }
+        subgraph cluster_18 {
+            color=blue
+            54 [label="Enter property" style="filled" fillcolor=red];
+            55 [label="Exit property" style="filled" fillcolor=red];
+        }
+        57 [label="Exit class BB" style="filled" fillcolor=red];
+    }
+    56 -> {54} [color=green];
+    54 -> {55};
+    55 -> {57} [color=green];
+    52 -> {53};
+
+    subgraph cluster_19 {
+        color=red
+        58 [label="Enter function <init>" style="filled" fillcolor=red];
+        60 [label="Delegated constructor call: super<R|BB|>()"];
+        59 [label="Exit function <init>" style="filled" fillcolor=red];
+    }
+    58 -> {60};
+    60 -> {59};
+
+    subgraph cluster_20 {
+        color=red
+        66 [label="Enter function call" style="filled" fillcolor=red];
+        68 [label="Access variable R|/AA.bb1|"];
+        69 [label="Access variable R|kotlin/String.length|"];
+        70 [label="Function call: this@R|/AA|.R|/AA.bb1|.R|kotlin/String.length|.R|kotlin/Any.toString|()"];
+        71 [label="Jump: ^call this@R|/AA|.R|/AA.bb1|.R|kotlin/String.length|.R|kotlin/Any.toString|()"];
+        72 [label="Stub" style="filled" fillcolor=gray];
+        67 [label="Exit function call" style="filled" fillcolor=red];
+    }
+    66 -> {68};
+    68 -> {69};
+    69 -> {70};
+    70 -> {71};
+    71 -> {67};
+    71 -> {72} [style=dotted];
+    72 -> {67} [style=dotted];
+
+    subgraph cluster_21 {
+        color=red
+        73 [label="Enter class AA" style="filled" fillcolor=red];
+        subgraph cluster_22 {
+            color=blue
+            61 [label="Enter function getter" style="filled" fillcolor=red];
+            62 [label="Exit function getter" style="filled" fillcolor=red];
+        }
+        subgraph cluster_23 {
+            color=blue
+            63 [label="Enter property" style="filled" fillcolor=red];
+            65 [label="Const: String(BB)"];
+            64 [label="Exit property" style="filled" fillcolor=red];
+        }
+        74 [label="Exit class AA" style="filled" fillcolor=red];
+    }
+    73 -> {63} [color=green];
+    63 -> {65};
+    64 -> {74} [color=green];
+    65 -> {64};
+    61 -> {62};
+
+}

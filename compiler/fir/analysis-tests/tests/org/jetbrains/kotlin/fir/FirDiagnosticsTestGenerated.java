@@ -958,6 +958,11 @@ public class FirDiagnosticsTestGenerated extends AbstractFirDiagnosticsTest {
                 runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/propertyInit.kt");
             }
 
+            @TestMetadata("recursInher.kt")
+            public void testRecursInher() throws Exception {
+                runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/recursInher.kt");
+            }
+
             @TestMetadata("simpleInitNeg.kt")
             public void testSimpleInitNeg() throws Exception {
                 runTest("compiler/fir/analysis-tests/testData/resolve/diagnostics/leakingThis/simpleInitNeg.kt");

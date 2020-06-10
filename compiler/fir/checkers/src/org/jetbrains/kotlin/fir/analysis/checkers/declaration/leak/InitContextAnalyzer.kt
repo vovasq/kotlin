@@ -50,25 +50,7 @@ internal class InitContextAnalyzer(
                 runContextAnalysis(initContext)
     }
 
-    private fun runSuperTypesAnalysis()
-    {
-
-        for (typeRef in initContext.classDeclaration.superTypeRefs) {
-            if (superTypesResolved < maxSuperTypesResolved) {
-                val superClassDeclaration = typeRef.getFirSuperTypeRegularClass(session) ?: continue
-                val superClassInitContext = createClassInitContext(superClassDeclaration)
-                initContext.superTypesInitContexts?.addFirst(superClassInitContext)
-                superTypesResolved++
-            }
-        }
-
-        for (superTypeContext in initContext.superTypesInitContexts!!) {
-            runContextAnalysis(superTypeContext)
-//            updateMainInitContext()
-        }
-
-    }
-    private fun runSuperTypesAnalysisWithRecurs() {
+    private fun runSuperTypesAnalysis() {
         val stack = ArrayDeque<FirRegularClass>()
         for (typeRef in initContext.classDeclaration.superTypeRefs) {
             if (superTypesResolved < maxSuperTypesResolved) {
@@ -79,12 +61,11 @@ internal class InitContextAnalyzer(
         while (stack.isNotEmpty()) {
             val superClassDeclaration = stack.removeFirst()
             val superClassInitContext = createClassInitContext(superClassDeclaration)
-            if (!superClassInitContext.isDerivedClassAndOverridesFun || superTypesResolved < maxSuperTypesResolved)
-                break
             initContext.superTypesInitContexts?.addFirst(superClassInitContext)
             for (typeRef in superClassDeclaration.superTypeRefs) {
-                if (superTypesResolved < maxSuperTypesResolved) {
-                    stack.addFirst(typeRef.getFirSuperTypeRegularClass(session) ?: continue)
+                val superTypeClass = typeRef.getFirSuperTypeRegularClass(session) ?: continue
+                if (superTypesResolved < maxSuperTypesResolved || superTypeClass.isSuperTypeOverrideFunctions) {
+                    stack.addFirst(superTypeClass)
                     superTypesResolved++
                 }
             }

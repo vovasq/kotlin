@@ -1,0 +1,62 @@
+FILE: recursInher.kt
+    public abstract class C : R|kotlin/Any| {
+        public constructor(): R|C| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val c1: R|kotlin/String| = this@R|/C|.R|/C.call|()
+            public get(): R|kotlin/String|
+
+        public abstract fun call(): R|kotlin/String|
+
+    }
+    public abstract class B : R|C| {
+        public constructor(): R|B| {
+            super<R|C|>()
+        }
+
+        public abstract fun bCall(): R|kotlin/Unit|
+
+        public open override fun call(): R|kotlin/String| {
+            ^call String(safe)
+        }
+
+    }
+    public final class A : R|B| {
+        public constructor(): R|A| {
+            super<R|B|>()
+        }
+
+        public final val a1: R|kotlin/String| = String(ura)
+            public get(): R|kotlin/String|
+
+        public final override fun bCall(): R|kotlin/Unit| {
+        }
+
+        public final override fun call(): R|kotlin/String| {
+            ^call String(babah sss -> c1, a1!!).R|kotlin/String.plus|(this@R|/A|.R|/C.c1|.R|kotlin/String.length|.R|kotlin/Any.toString|()).R|kotlin/String.plus|(this@R|/A|.R|/A.a1|.R|kotlin/String.length|.R|kotlin/Any.toString|())
+        }
+
+    }
+    public abstract class BB : R|C| {
+        public constructor(): R|BB| {
+            super<R|C|>()
+        }
+
+        public abstract val bb1: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+    }
+    public final class AA : R|BB| {
+        public constructor(): R|AA| {
+            super<R|BB|>()
+        }
+
+        public final override val bb1: R|kotlin/String| = String(BB)
+            public get(): R|kotlin/String|
+
+        public final override fun call(): R|kotlin/String| {
+            ^call this@R|/AA|.R|/AA.bb1|.R|kotlin/String.length|.R|kotlin/Any.toString|()
+        }
+
+    }
