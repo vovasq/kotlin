@@ -1,11 +1,17 @@
 FILE: constructors.kt
-    public final class A : R|kotlin/Any| {
-        public constructor(p0: R|kotlin/String|): R|A| {
+    public open class A : R|kotlin/Any| {
+        public constructor(p0: R|kotlin/String|, p4: R|kotlin/String|, p5: R|kotlin/Int| = Int(0)): R|A| {
             super<R|kotlin/Any|>()
         }
 
         public final val p0: R|kotlin/String| = R|<local>/p0|
             public get(): R|kotlin/String|
+
+        public final val p4: R|kotlin/String| = R|<local>/p4|
+            public get(): R|kotlin/String|
+
+        public final val p5: R|kotlin/Int| = R|<local>/p5|
+            public get(): R|kotlin/Int|
 
         public final val p1: R|kotlin/String| = this@R|/A|.R|/A.memberCall1|()
             public get(): R|kotlin/String|
@@ -17,7 +23,7 @@ FILE: constructors.kt
             public get(): R|kotlin/Int|
 
         init {
-            this@R|/A|.R|/A.p2| = R|<local>/p0|.R|kotlin/String.length|.R|kotlin/Any.toString|().R|kotlin/String.plus|(String(dsadsa)).R|kotlin/String.plus|(this@R|/A|.R|/A.p3|.R|kotlin/Any.toString|())
+            this@R|/A|.R|/A.p2| = R|<local>/p0|.R|kotlin/String.length|.R|kotlin/Any.toString|().R|kotlin/String.plus|(String(dsadsa)).R|kotlin/String.plus|(this@R|/A|.R|/A.p3|.R|kotlin/Any.toString|()).R|kotlin/String.plus|(R|<local>/p4|.R|kotlin/Any.toString|()).R|kotlin/String.plus|(R|<local>/p5|.R|kotlin/Any.toString|())
         }
 
         private final fun memberCall1(): R|kotlin/String| {
@@ -35,6 +41,15 @@ FILE: constructors.kt
             }
 
         }
+
+    }
+    public final class BB : R|A| {
+        public constructor(b1: R|kotlin/String|, p0: R|kotlin/String|, p4: R|kotlin/String|): R|BB| {
+            super<R|A|>(R|<local>/p0|, R|<local>/p4|)
+        }
+
+        public final val b1: R|kotlin/String| = R|<local>/b1|
+            public get(): R|kotlin/String|
 
     }
     public final class B : R|kotlin/Any| {

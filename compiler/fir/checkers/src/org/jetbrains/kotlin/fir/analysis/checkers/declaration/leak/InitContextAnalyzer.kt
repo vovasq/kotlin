@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
 import org.jetbrains.kotlin.fir.resolve.dfa.controlFlowGraph
+import org.jetbrains.kotlin.fir.resolve.firProvider
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 import org.jetbrains.kotlin.name.ClassId
@@ -177,11 +178,13 @@ internal class InitContextAnalyzer(
             if (firstAccessedProperty.callableId.callableName.asString() !in initializedProperties.map { it.callableId.callableName.asString() }
                 && firstAccessedProperty.callableId.callableName.asString() !in reportedProperties.map { it.callableId.callableName.asString() }
             ) {
-                println("super in report: ${firstAccessedProperty.callableId.callableName} inited props: ${initializedProperties.map { it.callableId.callableName }}, reported: ${reportedProperties.map { it.callableId.callableName }}")
+                println("file = ${session.firProvider.getFirCallableContainerFile(firstAccessedProperty)?.name}" +
+                    " class = ${initContext.classId.relativeClassName}; super in report: ${firstAccessedProperty.callableId.callableName} inited props: ${initializedProperties.map { it.callableId.callableName }}, reported: ${reportedProperties.map { it.callableId.callableName }}")
                 return report()
             }
         } else if (firstAccessedProperty !in initializedProperties && firstAccessedProperty !in reportedProperties) {
-            println("in report: ${firstAccessedProperty.callableId.callableName} inited props: ${initializedProperties.map { it.callableId.callableName }}, reported: ${reportedProperties.map { it.callableId.callableName }}")
+            println("file = ${session.firProvider.getFirCallableContainerFile(firstAccessedProperty)?.name}" +
+                            " class = ${initContext.classId.relativeClassName} in report: ${firstAccessedProperty.callableId.callableName} inited props: ${initializedProperties.map { it.callableId.callableName }}, reported: ${reportedProperties.map { it.callableId.callableName }}")
             return report()
         }
         return true
@@ -214,7 +217,7 @@ internal class InitContextAnalyzer(
         }
 
     private val InitContextNode.callableName: Name?
-        get() = (cfgNode as FunctionCallNode).fir.calleeReference.resolvedSymbolAsNamedFunction?.fir?.name
+        get() = (cfgNode as? FunctionCallNode)?.fir?.calleeReference?.resolvedSymbolAsNamedFunction?.fir?.name
 
     private val InitContextNode.callableSymbol: FirCallableSymbol<*>?
         get() = when (cfgNode) {

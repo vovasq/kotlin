@@ -11,4 +11,19 @@ class A {
         p2 = p3.length
         p3 = String("asa")
     }
+
+    fun tr() = true
+    fun call(): Int{
+        var a = 0
+
+        if(tr()){
+            a = 1
+            return a
+        }else{
+            a = 2
+            return a
+        }
+        a += 1
+        return a
+    }
 }

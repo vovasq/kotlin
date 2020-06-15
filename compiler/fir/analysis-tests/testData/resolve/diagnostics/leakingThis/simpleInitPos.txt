@@ -20,4 +20,25 @@ FILE: simpleInitPos.kt
             this@R|/A|.R|/A.p3| = R|java/lang/String.String|(String(asa))
         }
 
+        public final fun tr(): R|kotlin/Boolean| {
+            ^tr Boolean(true)
+        }
+
+        public final fun call(): R|kotlin/Int| {
+            lvar a: R|kotlin/Int| = Int(0)
+            when () {
+                this@R|/A|.R|/A.tr|() ->  {
+                    R|<local>/a| = Int(1)
+                    ^call R|<local>/a|
+                }
+                else ->  {
+                    R|<local>/a| = Int(2)
+                    ^call R|<local>/a|
+                }
+            }
+
+            R|<local>/a| = R|<local>/a|.R|kotlin/Int.plus|(Int(1))
+            ^call R|<local>/a|
+        }
+
     }
