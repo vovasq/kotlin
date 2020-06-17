@@ -80,6 +80,8 @@ internal class ForwardCfgVisitor(
         initContextNodes[node] = context
     }
 
+    private fun QualifiedAccessNode.hasNextSafeCallOperator() = followingNodes.any{ it is EnterSafeCallNode}
+
     override fun visitQualifiedAccessNode(node: QualifiedAccessNode) {
         val accessedProperties = mutableListOf<FirVariableSymbol<*>>()
         when {
@@ -91,7 +93,7 @@ internal class ForwardCfgVisitor(
                 val member = node.fir.calleeReference.resolvedSymbolAsProperty!!
                 accessedProperties.add(member)
                 var nodeType = ContextNodeType.PROPERTY_QUALIFIED_ACCESS
-                if (member.fir.status.isLateInit || member.fir.delegate != null)
+                if (member.fir.status.isLateInit || member.fir.delegate != null || node.hasNextSafeCallOperator())
                     nodeType = ContextNodeType.NOT_AFFECTED
                 lastQualifiedAccessContextNode = checkAndBuildNodeContext(
                     cfgNode = node,
@@ -175,13 +177,6 @@ internal class ForwardCfgVisitor(
             isInPropertyInitializer = false
             visitNode(node)
         }
-    }
-
-    override fun visitEnterSafeCallNode(node: EnterSafeCallNode) {
-        if (lastQualifiedAccessContextNode == currentAffectingNodes.peek()) {
-            lastQualifiedAccessContextNode?.nodeType = ContextNodeType.PROPERTY_SAFE_QUALIFIED_ACCESS
-        }
-        visitNode(node)
     }
 
     override fun visitFunctionEnterNode(node: FunctionEnterNode) {

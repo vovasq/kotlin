@@ -15,6 +15,8 @@ FILE: simpleInitPos.kt
 
         init {
             this@R|/A|.R|/A.p1|.R|kotlin/String.length|
+            this@R|/A|.R|/A.safeCall|()
+            this@R|/A|.R|/A.p3|?.{ $subj$.R|kotlin/String.length| }
             this@R|/A|.R|/A.p3|.R|kotlin/String.length|
             this@R|/A|.R|/A.p2| = this@R|/A|.R|/A.p3|.R|kotlin/String.length|
             this@R|/A|.R|/A.p3| = R|java/lang/String.String|(String(asa))
@@ -22,6 +24,10 @@ FILE: simpleInitPos.kt
 
         public final fun tr(): R|kotlin/Boolean| {
             ^tr Boolean(true)
+        }
+
+        public final fun safeCall(): R|kotlin/Unit| {
+            this@R|/A|.R|/A.p3|?.{ $subj$.R|kotlin/String.length| }
         }
 
         public final fun call(): R|kotlin/Int| {

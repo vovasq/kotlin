@@ -1,0 +1,35 @@
+FILE: moreInheritance.kt
+    public abstract class BaseA : R|kotlin/Any| {
+        public constructor(): R|BaseA| {
+            super<R|kotlin/Any|>()
+        }
+
+        public abstract val a1: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+        public abstract val a2: R|kotlin/Int|
+            public get(): R|kotlin/Int|
+
+        public open fun kek(): R|kotlin/Int| {
+            ^kek this@R|/BaseA|.R|/BaseA.a1|.R|kotlin/String.length|
+        }
+
+    }
+    public final class DerivedA : R|BaseA| {
+        public constructor(a2: R|kotlin/Int|, p1: R|kotlin/String|): R|DerivedA| {
+            super<R|BaseA|>()
+        }
+
+        public final override val a2: R|kotlin/Int| = R|<local>/a2|
+            public get(): R|kotlin/Int|
+
+        public final override val a1: R|kotlin/String|
+            public get(): R|kotlin/String| {
+                ^ this@R|/DerivedA|.R|/DerivedA.a2|.R|kotlin/Any.toString|()
+            }
+
+        init {
+            R|<local>/a2|.R|kotlin/Any.toString|()
+        }
+
+    }

@@ -7,12 +7,17 @@ class A {
 
     init {
         p1.length
+        safeCall()
+        p3?.length
         <!POSSIBLE_LEAKING_THIS_IN_CONSTRUCTOR!>p3<!>.length
         p2 = p3.length
         p3 = String("asa")
     }
 
     fun tr() = true
+    fun safeCall(){
+        p3?.length
+    }
     fun call(): Int{
         var a = 0
 

@@ -178,13 +178,29 @@ internal class InitContextAnalyzer(
             if (firstAccessedProperty.callableId.callableName.asString() !in initializedProperties.map { it.callableId.callableName.asString() }
                 && firstAccessedProperty.callableId.callableName.asString() !in reportedProperties.map { it.callableId.callableName.asString() }
             ) {
-                println("file = ${session.firProvider.getFirCallableContainerFile(firstAccessedProperty)?.name}" +
-                    " class = ${initContext.classId.relativeClassName}; super in report: ${firstAccessedProperty.callableId.callableName} inited props: ${initializedProperties.map { it.callableId.callableName }}, reported: ${reportedProperties.map { it.callableId.callableName }}")
+                println(
+                    """SUPER CASE: 
+                    file = ${session.firProvider.getFirCallableContainerFile(firstAccessedProperty)?.name},
+                    initContext class = ${initContext.classId.relativeClassName},
+                    initContext superClasses = ${initContext.superTypesInitContexts?.map{it.classId.relativeClassName}},
+                    property class = ${firstAccessedProperty.callableId.classId?.relativeClassName},
+                    leak in: ${firstAccessedProperty.callableId.callableName},
+                    inited props: ${initializedProperties.map { it.callableId.callableName }},
+                    reported: ${reportedProperties.map { it.callableId.callableName }}
+                 """
+                )
                 return report()
             }
         } else if (firstAccessedProperty !in initializedProperties && firstAccessedProperty !in reportedProperties) {
-            println("file = ${session.firProvider.getFirCallableContainerFile(firstAccessedProperty)?.name}" +
-                            " class = ${initContext.classId.relativeClassName} in report: ${firstAccessedProperty.callableId.callableName} inited props: ${initializedProperties.map { it.callableId.callableName }}, reported: ${reportedProperties.map { it.callableId.callableName }}")
+            println(
+                """BASE CASE: 
+                file = ${session.firProvider.getFirCallableContainerFile(firstAccessedProperty)?.name},
+                class = ${initContext.classId.relativeClassName},
+                leak in: ${firstAccessedProperty.callableId.callableName},
+                inited props: ${initializedProperties.map { it.callableId.callableName }},
+                reported: ${reportedProperties.map { it.callableId.callableName }}
+            """
+            )
             return report()
         }
         return true
