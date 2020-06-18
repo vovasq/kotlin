@@ -102,7 +102,7 @@ internal class InitContextAnalyzer(
         val contextNode = curInitContext.initContextNodes[node] ?: return
         when (contextNode.nodeType) {
             ContextNodeType.ASSIGNMENT_OR_INITIALIZER -> {
-                if (contextNode.isSuccessfullyInitNode()) {
+                if (!contextNode.isLambdaOrGetter() && contextNode.isSuccessfullyInitNode()) {
                     contextNode.confirmInitForCandidate()
                     initializedProperties.add(contextNode.initCandidate)
                 }
@@ -151,6 +151,10 @@ internal class InitContextAnalyzer(
         }
         //        } catch (e: Exception) {
 //        }
+
+//        lazy{
+//          print("as")
+//        }
     }
 
     private fun DiagnosticReporter.report(source: FirSourceElement?) {
@@ -182,14 +186,14 @@ internal class InitContextAnalyzer(
                     """SUPER CASE: 
                     file = ${session.firProvider.getFirCallableContainerFile(firstAccessedProperty)?.name},
                     initContext class = ${initContext.classId.relativeClassName},
-                    initContext superClasses = ${initContext.superTypesInitContexts?.map{it.classId.relativeClassName}},
+                    initContext superClasses = ${initContext.superTypesInitContexts?.map { it.classId.relativeClassName }},
                     property class = ${firstAccessedProperty.callableId.classId?.relativeClassName},
                     leak in: ${firstAccessedProperty.callableId.callableName},
                     inited props: ${initializedProperties.map { it.callableId.callableName }},
                     reported: ${reportedProperties.map { it.callableId.callableName }}
                  """
                 )
-                if(firstAccessedProperty !in initContext.abstractProperties)
+                if (firstAccessedProperty !in initContext.abstractProperties)
                     return report()
             }
         } else if (firstAccessedProperty !in initializedProperties && firstAccessedProperty !in reportedProperties) {
@@ -202,7 +206,7 @@ internal class InitContextAnalyzer(
                 reported: ${reportedProperties.map { it.callableId.callableName }}
             """
             )
-            if(firstAccessedProperty !in initContext.abstractProperties)
+            if (firstAccessedProperty !in initContext.abstractProperties)
                 return report()
         }
         return true
@@ -217,10 +221,13 @@ internal class InitContextAnalyzer(
         return false
     }
 
+    private fun InitContextNode.isLambdaOrGetter(): Boolean =
+        firstAccessedProperty.fir.getter != null && firstAccessedProperty.fir.getter!!.isNotEmpty
+
     private fun InitContextNode.isSuccessfullyInitNode(): Boolean =
         affectingNodes.all {
             it.nodeType != ContextNodeType.PROPERTY_QUALIFIED_ACCESS
-                    || (it.nodeType == ContextNodeType.PROPERTY_QUALIFIED_ACCESS
+                    ||  (it.nodeType == ContextNodeType.PROPERTY_QUALIFIED_ACCESS
                     && it.checkIfPropertyAccessOk()
                     && initializedProperties.contains(it.firstAccessedProperty))
 //                    && it.firstAccessedProperty.callableId.classId == classId // not fact

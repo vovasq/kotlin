@@ -149,4 +149,128 @@ digraph moreInheritance_kt {
     45 -> {46};
     46 -> {42};
 
+    subgraph cluster_17 {
+        color=red
+        53 [label="Enter function call" style="filled" fillcolor=red];
+        54 [label="Exit function call" style="filled" fillcolor=red];
+    }
+    53 -> {54};
+
+    subgraph cluster_18 {
+        color=red
+        55 [label="Enter function isOk" style="filled" fillcolor=red];
+        57 [label="Const: Boolean(false)"];
+        58 [label="Jump: ^isOk Boolean(false)"];
+        59 [label="Stub" style="filled" fillcolor=gray];
+        56 [label="Exit function isOk" style="filled" fillcolor=red];
+    }
+    55 -> {57};
+    57 -> {58};
+    58 -> {56};
+    58 -> {59} [style=dotted];
+    59 -> {56} [style=dotted];
+
+    subgraph cluster_19 {
+        color=red
+        60 [label="Enter function getLen" style="filled" fillcolor=red];
+        62 [label="Access variable R|<local>/p|"];
+        63 [label="Function call: R|<local>/p|.R|kotlin/Any.toString|()"];
+        64 [label="Jump: ^getLen R|<local>/p|.R|kotlin/Any.toString|()"];
+        65 [label="Stub" style="filled" fillcolor=gray];
+        61 [label="Exit function getLen" style="filled" fillcolor=red];
+    }
+    60 -> {62};
+    62 -> {63};
+    63 -> {64};
+    64 -> {61};
+    64 -> {65} [style=dotted];
+    65 -> {61} [style=dotted];
+
+    subgraph cluster_20 {
+        color=red
+        66 [label="Enter class I" style="filled" fillcolor=red];
+        subgraph cluster_21 {
+            color=blue
+            49 [label="Enter function getter" style="filled" fillcolor=red];
+            50 [label="Exit function getter" style="filled" fillcolor=red];
+        }
+        subgraph cluster_22 {
+            color=blue
+            51 [label="Enter property" style="filled" fillcolor=red];
+            52 [label="Exit property" style="filled" fillcolor=red];
+        }
+        67 [label="Exit class I" style="filled" fillcolor=red];
+    }
+    66 -> {51} [color=green];
+    51 -> {52};
+    52 -> {67} [color=green];
+    49 -> {50};
+
+    subgraph cluster_23 {
+        color=red
+        68 [label="Enter function <init>" style="filled" fillcolor=red];
+        70 [label="Delegated constructor call: super<R|kotlin/Any|>()"];
+        69 [label="Exit function <init>" style="filled" fillcolor=red];
+    }
+    68 -> {70};
+    70 -> {69};
+
+    subgraph cluster_24 {
+        color=red
+        78 [label="Enter function call" style="filled" fillcolor=red];
+        80 [label="Const: String(s)"];
+        81 [label="Variable declaration: lval s: R|kotlin/String|"];
+        82 [label="Access variable R|<local>/s|"];
+        83 [label="Access variable R|kotlin/String.length|"];
+        79 [label="Exit function call" style="filled" fillcolor=red];
+    }
+    78 -> {80};
+    80 -> {81};
+    81 -> {82};
+    82 -> {83};
+    83 -> {79};
+
+    subgraph cluster_25 {
+        color=red
+        84 [label="Enter class <anonymous>" style="filled" fillcolor=red];
+        subgraph cluster_26 {
+            color=blue
+            71 [label="Enter function getter" style="filled" fillcolor=red];
+            73 [label="Const: String(da)"];
+            74 [label="Jump: ^ String(da)"];
+            75 [label="Stub" style="filled" fillcolor=gray];
+            72 [label="Exit function getter" style="filled" fillcolor=red];
+        }
+        subgraph cluster_27 {
+            color=blue
+            76 [label="Enter property" style="filled" fillcolor=red];
+            77 [label="Exit property" style="filled" fillcolor=red];
+        }
+        85 [label="Exit class <anonymous>" style="filled" fillcolor=red];
+    }
+    84 -> {76} [color=green];
+    76 -> {77};
+    77 -> {85} [color=green];
+    71 -> {73};
+    73 -> {74};
+    74 -> {72};
+    74 -> {75} [style=dotted];
+    75 -> {72} [style=dotted];
+
+    subgraph cluster_28 {
+        color=red
+        88 [label="Enter property" style="filled" fillcolor=red];
+        subgraph cluster_29 {
+            color=blue
+            86 [label="Enter function getter" style="filled" fillcolor=red];
+            87 [label="Exit function getter" style="filled" fillcolor=red];
+        }
+        90 [label="Exit anonymous object"];
+        89 [label="Exit property" style="filled" fillcolor=red];
+    }
+    88 -> {90};
+    88 -> {68 76 71 78} [color=red];
+    90 -> {89};
+    86 -> {87};
+
 }

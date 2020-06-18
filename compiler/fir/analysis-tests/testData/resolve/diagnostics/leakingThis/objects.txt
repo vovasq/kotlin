@@ -1,0 +1,47 @@
+FILE: objects.kt
+    public final class Q : R|kotlin/Any| {
+        public constructor(): R|Q| {
+            super<R|kotlin/Any|>()
+        }
+
+        private final val k: R|() -> kotlin/Unit| = fun <anonymous>(): R|kotlin/Unit| {
+            this@R|/Q|.R|/Q.SUPER_QUALIFIER|.R|/anonymous.call|()
+        }
+
+            private get(): R|() -> kotlin/Unit|
+
+        private final val SUPER_QUALIFIER: R|anonymous| = object : R|I| {
+            private[local] constructor(): R|anonymous| {
+                super<R|kotlin/Any|>()
+            }
+
+            public[local] final override val i1: R|kotlin/String?|
+                public get(): R|kotlin/String?| {
+                    ^ String(da)
+                }
+
+            public[local] final override fun call(): R|kotlin/Unit| {
+                lval s: R|kotlin/String| = String(s)
+                R|<local>/s|.R|kotlin/String.length|
+            }
+
+        }
+
+            private get(): R|anonymous|
+
+    }
+    public abstract interface I : R|kotlin/Any| {
+        public abstract val i1: R|kotlin/String?|
+            public get(): R|kotlin/String?|
+
+        public abstract fun call(): R|kotlin/Unit|
+
+        public open fun isOk(): R|kotlin/Boolean| {
+            ^isOk Boolean(false)
+        }
+
+        public open fun getLen(p: R|kotlin/Int|): R|kotlin/String| {
+            ^getLen R|<local>/p|.R|kotlin/Any.toString|()
+        }
+
+    }
