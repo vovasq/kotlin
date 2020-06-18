@@ -235,8 +235,9 @@ internal class ForwardCfgVisitor(
 
     private fun updateAffectedNodesAfterAssignmentNode(assignNodeContext: InitContextNode) {
         val rValue = (assignNodeContext.cfgNode as VariableAssignmentNode).fir.rValue
-        currentAffectingNodes.pop() // remove assignNodeContext itself
-        if (currentAffectingNodes.isNotEmpty()) {
+
+        if (currentAffectingNodes.size > 1) {
+            currentAffectingNodes.pop() // remove assignNodeContext itself
             var node = currentAffectingNodes.pop()
             while (node.cfgNode.fir != rValue) {
                 node.affectedNodes.add(assignNodeContext)

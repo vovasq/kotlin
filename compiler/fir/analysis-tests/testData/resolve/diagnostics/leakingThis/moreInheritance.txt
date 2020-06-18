@@ -10,6 +10,9 @@ FILE: moreInheritance.kt
         public abstract val a2: R|kotlin/Int|
             public get(): R|kotlin/Int|
 
+        public final val a3: R|kotlin/Int| = this@R|/BaseA|.R|/BaseA.a1|.R|kotlin/String.length|
+            public get(): R|kotlin/Int|
+
         public open fun kek(): R|kotlin/Int| {
             ^kek this@R|/BaseA|.R|/BaseA.a1|.R|kotlin/String.length|
         }

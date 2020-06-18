@@ -5,11 +5,9 @@
 
 package org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak
 
+import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.analysis.cfa.traverseForwardWithoutLoops
-import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
-import org.jetbrains.kotlin.fir.declarations.FirConstructor
-import org.jetbrains.kotlin.fir.declarations.FirPropertyAccessor
-import org.jetbrains.kotlin.fir.declarations.FirRegularClass
+import org.jetbrains.kotlin.fir.declarations.*
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.CFGNode
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.ControlFlowGraph
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.FunctionEnterNode
@@ -38,13 +36,16 @@ open class ClassInitContext(val classDeclaration: FirRegularClass) {
     val isDerivedClassAndOverridesFun: Boolean
         get() = (this as? DerivedClassInitContext)?.overrideFunctions?.isNotEmpty() ?: false
 
+    val abstractProperties = mutableListOf<FirVariableSymbol<*>>()
 
     init {
         if (isCfgAvailable) {
             // to detect initialization by constructor parameters
             for (declaration in classDeclaration.declarations) {
-                if (declaration is FirConstructor)
-                    primaryConstructorParams.addAll(declaration.valueParameters.map { it.symbol })
+                when (declaration) {
+                    is FirConstructor -> primaryConstructorParams.addAll(declaration.valueParameters.map { it.symbol })
+                    is FirProperty -> if(declaration.modality == Modality.ABSTRACT) abstractProperties.add(declaration.symbol)
+                }
             }
 
             // collect lambdas and property getter/setter data

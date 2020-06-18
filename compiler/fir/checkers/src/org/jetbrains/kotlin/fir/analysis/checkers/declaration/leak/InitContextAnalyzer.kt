@@ -189,7 +189,8 @@ internal class InitContextAnalyzer(
                     reported: ${reportedProperties.map { it.callableId.callableName }}
                  """
                 )
-                return report()
+                if(firstAccessedProperty !in initContext.abstractProperties)
+                    return report()
             }
         } else if (firstAccessedProperty !in initializedProperties && firstAccessedProperty !in reportedProperties) {
             println(
@@ -201,7 +202,8 @@ internal class InitContextAnalyzer(
                 reported: ${reportedProperties.map { it.callableId.callableName }}
             """
             )
-            return report()
+            if(firstAccessedProperty !in initContext.abstractProperties)
+                return report()
         }
         return true
     }

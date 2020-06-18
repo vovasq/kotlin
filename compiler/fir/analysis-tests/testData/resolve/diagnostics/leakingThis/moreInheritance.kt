@@ -3,6 +3,7 @@
 abstract class BaseA{
     abstract val a1: String
     abstract val a2: Int
+    val a3 = a1.length
     open fun kek() = a1.length
 }
 
