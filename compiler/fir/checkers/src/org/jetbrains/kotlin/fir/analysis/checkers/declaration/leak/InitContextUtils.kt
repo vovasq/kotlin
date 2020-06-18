@@ -214,7 +214,7 @@ internal class ForwardCfgVisitor(
             context.affectedNodes.add(lastPropertyInitializerContextNode!!)
         }
 
-        checkForAnonymousAffects(context)
+//        checkForAnonymousAffects(context)
 
         return context
     }
@@ -239,7 +239,7 @@ internal class ForwardCfgVisitor(
         if (currentAffectingNodes.size > 1) {
             currentAffectingNodes.pop() // remove assignNodeContext itself
             var node = currentAffectingNodes.pop()
-            while (node.cfgNode.fir != rValue) {
+            while (node.cfgNode.fir != rValue && currentAffectingNodes.size > 0) {
                 node.affectedNodes.add(assignNodeContext)
                 assignNodeContext.affectingNodes.add(node)
                 node = currentAffectingNodes.pop()

@@ -45,7 +45,7 @@ FILE: inlineAndLambdas.kt
 
         public final val p9: R|kotlin/String|
             public get(): R|kotlin/String| {
-                ^ String(dasd).R|kotlin/String.plus|(this@R|/A|.R|/A.p1|)
+                ^ String(dasd).R|kotlin/String.plus|(this@R|/A|.R|/A.p2|)
             }
 
         init {
@@ -58,6 +58,7 @@ FILE: inlineAndLambdas.kt
             }
 
             this@R|/A|.R|/A.p2| = String(dsasdsa)
+            this@R|/A|.R|/A.p9|.R|kotlin/String.length|
             this@R|/A|.R|/A.p6| = fun <anonymous>(i: R|kotlin/Int|): R|kotlin/String| {
                 ^ this@R|/A|.R|/A.p1|.R|kotlin/String.plus|(String(dadsa))
             }
@@ -69,7 +70,6 @@ FILE: inlineAndLambdas.kt
 
             this@R|/A|.R|/A.p8|.R|kotlin/String.length|
             this@R|/A|.R|/A.p1| = String(asa)
-            this@R|/A|.R|/A.p9|.R|kotlin/String.length|
         }
 
     }

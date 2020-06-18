@@ -15,3 +15,27 @@ class DerivedA(override val a2: Int, p1: String) : BaseA(){
     }
 }
 
+
+
+interface I {
+    val i1: String?
+
+    fun call()
+
+    fun isOk() = false
+
+    fun getLen(p: Int) = p.toString()
+
+}
+
+private val SUPER_QUALIFIER = object : I {
+    override val i1: String?
+        get() = "da"
+
+    override fun call() {
+        val s = "s"
+        s.length
+
+    }
+}
+

@@ -28,9 +28,9 @@ digraph inlineAndLambdas_kt {
             color=blue
             61 [label="Enter function getter" style="filled" fillcolor=red];
             63 [label="Const: String(dasd)"];
-            64 [label="Access variable R|/A.p1|"];
+            64 [label="Access variable R|/A.p2|"];
             65 [label="Function call: String(dasd).R|kotlin/String.plus|(...)"];
-            66 [label="Jump: ^ String(dasd).R|kotlin/String.plus|(this@R|/A|.R|/A.p1|)"];
+            66 [label="Jump: ^ String(dasd).R|kotlin/String.plus|(this@R|/A|.R|/A.p2|)"];
             67 [label="Stub" style="filled" fillcolor=gray];
             62 [label="Exit function getter" style="filled" fillcolor=red];
         }
@@ -134,16 +134,16 @@ digraph inlineAndLambdas_kt {
                 96 [label="Variable declaration: lval local2: R|(kotlin/Int) -> kotlin/String|"];
                 97 [label="Const: String(dsasdsa)"];
                 98 [label="Assignment: R|/A.p2|"];
-                99 [label="Assignment: R|/A.p6|"];
-                100 [label="Access variable R|<local>/local2|"];
-                101 [label="Assignment: R|/A.p5|"];
-                102 [label="Assignment: R|/A.p7|"];
-                103 [label="Access variable R|/A.p8|"];
-                104 [label="Access variable R|kotlin/String.length|"];
-                105 [label="Const: String(asa)"];
-                106 [label="Assignment: R|/A.p1|"];
-                107 [label="Access variable R|/A.p9|"];
-                108 [label="Access variable R|kotlin/String.length|"];
+                99 [label="Access variable R|/A.p9|"];
+                100 [label="Access variable R|kotlin/String.length|"];
+                101 [label="Assignment: R|/A.p6|"];
+                102 [label="Access variable R|<local>/local2|"];
+                103 [label="Assignment: R|/A.p5|"];
+                104 [label="Assignment: R|/A.p7|"];
+                105 [label="Access variable R|/A.p8|"];
+                106 [label="Access variable R|kotlin/String.length|"];
+                107 [label="Const: String(asa)"];
+                108 [label="Assignment: R|/A.p1|"];
                 109 [label="Exit block"];
             }
             93 [label="Exit init block" style="filled" fillcolor=red];
@@ -279,13 +279,13 @@ digraph inlineAndLambdas_kt {
     96 -> {97};
     97 -> {98};
     98 -> {99};
-    98 -> {84} [color=red];
     99 -> {100};
     100 -> {101};
+    100 -> {84} [color=red];
     101 -> {102};
-    101 -> {89} [color=red];
     102 -> {103};
     103 -> {104};
+    103 -> {89} [color=red];
     104 -> {105};
     105 -> {106};
     106 -> {107};
