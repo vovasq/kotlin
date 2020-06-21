@@ -8,10 +8,7 @@ package org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.fir.analysis.cfa.traverseForwardWithoutLoops
 import org.jetbrains.kotlin.fir.declarations.*
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.CFGNode
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.ControlFlowGraph
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.FunctionEnterNode
-import org.jetbrains.kotlin.fir.resolve.dfa.cfg.PropertyInitializerEnterNode
+import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
 import org.jetbrains.kotlin.fir.resolve.dfa.controlFlowGraph
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 import org.jetbrains.kotlin.name.ClassId
@@ -44,7 +41,7 @@ open class ClassInitContext(val classDeclaration: FirRegularClass) {
             for (declaration in classDeclaration.declarations) {
                 when (declaration) {
                     is FirConstructor -> primaryConstructorParams.addAll(declaration.valueParameters.map { it.symbol })
-                    is FirProperty -> if(declaration.modality == Modality.ABSTRACT) abstractProperties.add(declaration.symbol)
+                    is FirProperty -> if (declaration.modality == Modality.ABSTRACT) abstractProperties.add(declaration.symbol)
                 }
             }
 
@@ -56,9 +53,12 @@ open class ClassInitContext(val classDeclaration: FirRegularClass) {
                             is FirAnonymousFunction -> {
                                 val visitor = ForwardCfgVisitor(
                                     classDeclaration.symbol.classId,
-                                    mutableMapOf()
+                                    mutableMapOf(),
                                 )
-                                subGraph.traverseForwardWithoutLoops(visitor, this)
+                                subGraph.traverseForwardWithoutLoops(visitor, this, acceptFollowing =
+                                { _: CFGNode<*>, following: CFGNode<*> ->
+                                    following !is StubNode
+                                })
                                 anonymousFunctionsContext[subGraph.enterNode as FunctionEnterNode] = visitor.initContextNodes
                             }
                             is FirPropertyAccessor -> {

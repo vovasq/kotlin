@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.fir.analysis.cfa
 
 import org.jetbrains.kotlin.fir.analysis.checkers.declaration.leak.ClassInitContext
+import org.jetbrains.kotlin.fir.declarations.FirAnonymousFunction
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
 
 enum class TraverseDirection {
@@ -76,8 +77,11 @@ fun ControlFlowGraph.traverseForwardWithoutLoops(
     visitor: ControlFlowGraphVisitorVoid,
     initContext: ClassInitContext,
     analyze: (CFGNode<*>, ClassInitContext) -> Unit = { _: CFGNode<*>, _: ClassInitContext -> },
-    loopHandler: (CFGNode<*>) -> Unit = { _: CFGNode<*> -> },
-    acceptFollowing: (CFGNode<*>, CFGNode<*>) -> Boolean = { _: CFGNode<*>, following: CFGNode<*> -> following !is StubNode }
+    acceptFollowing: (CFGNode<*>, CFGNode<*>) -> Boolean
+    = { _: CFGNode<*>, following: CFGNode<*> ->
+        following !is StubNode
+                && !(following is FunctionEnterNode && following.fir is FirAnonymousFunction)
+    }
 ) {
     val visitedNodes = mutableSetOf<CFGNode<*>>()
     val stack = ArrayDeque<CFGNode<*>>()
