@@ -34,8 +34,8 @@ internal class InitContextAnalyzer(
     private val initializedProperties = mutableSetOf<FirVariableSymbol<*>>()
     private val reportedProperties = mutableSetOf<FirVariableSymbol<*>>()
 
-    private var callResolved: Int = 0
-    private var superTypesResolved: Int = 0
+    var callResolved: Int = 0
+    var superTypesResolved: Int = 0
 
     private val resolvedCalls = mutableSetOf<FirCallableSymbol<*>>()
 
