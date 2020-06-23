@@ -93,7 +93,10 @@ fun ControlFlowGraph.traverseForwardWithoutLoops(
             node.accept(visitor, null)
             node.followingNodes.forEach {
                 if (acceptFollowing(node, it))
-                    stack.addFirst(it)
+                    if (it is WhenExitNode || it is LoopExitNode)
+                        stack.addLast(it)
+                    else
+                        stack.addFirst(it)
             }
         }
     }

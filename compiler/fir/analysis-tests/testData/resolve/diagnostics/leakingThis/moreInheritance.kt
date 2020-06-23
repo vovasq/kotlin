@@ -15,8 +15,6 @@ class DerivedA(override val a2: Int, p1: String) : BaseA(){
     }
 }
 
-
-
 interface I {
     val i1: String?
 
@@ -36,6 +34,33 @@ private val SUPER_QUALIFIER = object : I {
         val s = "s"
         s.length
 
+    }
+}
+
+abstract class BaseK{
+    abstract val a1: String
+    abstract val a2: Int
+    val a3 = kek()
+    abstract fun kek(): Int
+}
+
+abstract class BaseB : BaseK(){
+    abstract val b2:String
+}
+
+class LLL(override val a2: Int, p1: String) : BaseB(){
+    override val a1: String
+        get() = a2.toString()
+
+    override val b2: String
+
+    init {
+        a2.toString()
+        b2 = "b2"
+    }
+
+    override fun kek(): Int{
+        return <!POSSIBLE_LEAKING_THIS_IN_CONSTRUCTOR!>b2<!>.length
     }
 }
 

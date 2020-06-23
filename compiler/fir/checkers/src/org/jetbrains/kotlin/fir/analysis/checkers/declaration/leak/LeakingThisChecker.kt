@@ -15,7 +15,7 @@ object LeakingThisChecker : FirDeclarationChecker<FirRegularClass>() {
     override fun check(declaration: FirRegularClass, context: CheckerContext, reporter: DiagnosticReporter) {
 
         val maxCallResolved = 100
-        val maxSuperTypesResolved = 6
+        val maxSuperTypesResolved = 100
         val classInitContext = createClassInitContext(declaration)
         val analyzer = InitContextAnalyzer(context.session, classInitContext, reporter, maxCallResolved, maxSuperTypesResolved)
         analyzer.analyze()

@@ -1,16 +1,10 @@
 FILE: objects.kt
-    public final class Q : R|kotlin/Any| {
-        public constructor(): R|Q| {
+    public open class Base : R|kotlin/Any| {
+        public constructor(): R|Base| {
             super<R|kotlin/Any|>()
         }
 
-        private final val k: R|() -> kotlin/Unit| = fun <anonymous>(): R|kotlin/Unit| {
-            this@R|/Q|.R|/Q.SUPER_QUALIFIER|.R|/anonymous.call|()
-        }
-
-            private get(): R|() -> kotlin/Unit|
-
-        private final val SUPER_QUALIFIER: R|anonymous| = object : R|I| {
+        protected final val SUPER_QUALIFIER: R|anonymous| = object : R|I| {
             private[local] constructor(): R|anonymous| {
                 super<R|kotlin/Any|>()
             }
@@ -20,21 +14,35 @@ FILE: objects.kt
                     ^ String(da)
                 }
 
-            public[local] final override fun call(): R|kotlin/Unit| {
+            public[local] final override fun call(): R|kotlin/String| {
                 lval s: R|kotlin/String| = String(s)
                 R|<local>/s|.R|kotlin/String.length|
+                ^call R|<local>/s|
             }
 
         }
 
-            private get(): R|anonymous|
+            protected get(): R|anonymous|
+
+    }
+    public final class Q : R|Base| {
+        public constructor(): R|Q| {
+            super<R|Base|>()
+        }
+
+        private final val k: R|kotlin/String| = this@R|/Q|.R|/Q.k|()
+            private get(): R|kotlin/String|
+
+        public final fun k(): R|kotlin/String| {
+            ^k this@R|/Q|.R|/Base.SUPER_QUALIFIER|.R|/anonymous.call|()
+        }
 
     }
     public abstract interface I : R|kotlin/Any| {
         public abstract val i1: R|kotlin/String?|
             public get(): R|kotlin/String?|
 
-        public abstract fun call(): R|kotlin/Unit|
+        public abstract fun call(): R|kotlin/String|
 
         public open fun isOk(): R|kotlin/Boolean| {
             ^isOk Boolean(false)

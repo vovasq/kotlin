@@ -273,4 +273,201 @@ digraph moreInheritance_kt {
     90 -> {89};
     86 -> {87};
 
+    subgraph cluster_30 {
+        color=red
+        91 [label="Enter function <init>" style="filled" fillcolor=red];
+        93 [label="Delegated constructor call: super<R|kotlin/Any|>()"];
+        92 [label="Exit function <init>" style="filled" fillcolor=red];
+    }
+    91 -> {93};
+    93 -> {92};
+
+    subgraph cluster_31 {
+        color=red
+        107 [label="Enter function kek" style="filled" fillcolor=red];
+        108 [label="Exit function kek" style="filled" fillcolor=red];
+    }
+    107 -> {108};
+
+    subgraph cluster_32 {
+        color=red
+        109 [label="Enter class BaseK" style="filled" fillcolor=red];
+        subgraph cluster_33 {
+            color=blue
+            102 [label="Enter function getter" style="filled" fillcolor=red];
+            103 [label="Exit function getter" style="filled" fillcolor=red];
+        }
+        subgraph cluster_34 {
+            color=blue
+            98 [label="Enter function getter" style="filled" fillcolor=red];
+            99 [label="Exit function getter" style="filled" fillcolor=red];
+        }
+        subgraph cluster_35 {
+            color=blue
+            94 [label="Enter function getter" style="filled" fillcolor=red];
+            95 [label="Exit function getter" style="filled" fillcolor=red];
+        }
+        subgraph cluster_36 {
+            color=blue
+            96 [label="Enter property" style="filled" fillcolor=red];
+            97 [label="Exit property" style="filled" fillcolor=red];
+        }
+        subgraph cluster_37 {
+            color=blue
+            100 [label="Enter property" style="filled" fillcolor=red];
+            101 [label="Exit property" style="filled" fillcolor=red];
+        }
+        subgraph cluster_38 {
+            color=blue
+            104 [label="Enter property" style="filled" fillcolor=red];
+            106 [label="Function call: this@R|/BaseK|.R|/BaseK.kek|()"];
+            105 [label="Exit property" style="filled" fillcolor=red];
+        }
+        110 [label="Exit class BaseK" style="filled" fillcolor=red];
+    }
+    109 -> {96} [color=green];
+    96 -> {97};
+    97 -> {100} [color=green];
+    94 -> {95};
+    100 -> {101};
+    101 -> {104} [color=green];
+    98 -> {99};
+    104 -> {106};
+    105 -> {110} [color=green];
+    106 -> {105};
+    102 -> {103};
+
+    subgraph cluster_39 {
+        color=red
+        111 [label="Enter function <init>" style="filled" fillcolor=red];
+        113 [label="Delegated constructor call: super<R|BaseK|>()"];
+        112 [label="Exit function <init>" style="filled" fillcolor=red];
+    }
+    111 -> {113};
+    113 -> {112};
+
+    subgraph cluster_40 {
+        color=red
+        118 [label="Enter class BaseB" style="filled" fillcolor=red];
+        subgraph cluster_41 {
+            color=blue
+            114 [label="Enter function getter" style="filled" fillcolor=red];
+            115 [label="Exit function getter" style="filled" fillcolor=red];
+        }
+        subgraph cluster_42 {
+            color=blue
+            116 [label="Enter property" style="filled" fillcolor=red];
+            117 [label="Exit property" style="filled" fillcolor=red];
+        }
+        119 [label="Exit class BaseB" style="filled" fillcolor=red];
+    }
+    118 -> {116} [color=green];
+    116 -> {117};
+    117 -> {119} [color=green];
+    114 -> {115};
+
+    subgraph cluster_43 {
+        color=red
+        120 [label="Enter function <init>" style="filled" fillcolor=red];
+        122 [label="Delegated constructor call: super<R|BaseB|>()"];
+        121 [label="Exit function <init>" style="filled" fillcolor=red];
+    }
+    120 -> {122};
+    122 -> {121};
+
+    subgraph cluster_44 {
+        color=red
+        148 [label="Enter function kek" style="filled" fillcolor=red];
+        150 [label="Access variable R|/LLL.b2|"];
+        151 [label="Access variable R|kotlin/String.length|"];
+        152 [label="Jump: ^kek this@R|/LLL|.R|/LLL.b2|.R|kotlin/String.length|"];
+        153 [label="Stub" style="filled" fillcolor=gray];
+        149 [label="Exit function kek" style="filled" fillcolor=red];
+    }
+    148 -> {150};
+    150 -> {151};
+    151 -> {152};
+    152 -> {149};
+    152 -> {153} [style=dotted];
+    153 -> {149} [style=dotted];
+
+    subgraph cluster_45 {
+        color=red
+        154 [label="Enter class LLL" style="filled" fillcolor=red];
+        subgraph cluster_46 {
+            color=blue
+            136 [label="Enter function getter" style="filled" fillcolor=red];
+            137 [label="Exit function getter" style="filled" fillcolor=red];
+        }
+        subgraph cluster_47 {
+            color=blue
+            128 [label="Enter function getter" style="filled" fillcolor=red];
+            130 [label="Access variable R|/LLL.a2|"];
+            131 [label="Function call: this@R|/LLL|.R|/LLL.a2|.R|kotlin/Any.toString|()"];
+            132 [label="Jump: ^ this@R|/LLL|.R|/LLL.a2|.R|kotlin/Any.toString|()"];
+            133 [label="Stub" style="filled" fillcolor=gray];
+            129 [label="Exit function getter" style="filled" fillcolor=red];
+        }
+        subgraph cluster_48 {
+            color=blue
+            123 [label="Enter function getter" style="filled" fillcolor=red];
+            124 [label="Exit function getter" style="filled" fillcolor=red];
+        }
+        subgraph cluster_49 {
+            color=blue
+            125 [label="Enter property" style="filled" fillcolor=red];
+            127 [label="Access variable R|<local>/a2|"];
+            126 [label="Exit property" style="filled" fillcolor=red];
+        }
+        subgraph cluster_50 {
+            color=blue
+            134 [label="Enter property" style="filled" fillcolor=red];
+            135 [label="Exit property" style="filled" fillcolor=red];
+        }
+        subgraph cluster_51 {
+            color=blue
+            138 [label="Enter property" style="filled" fillcolor=red];
+            139 [label="Exit property" style="filled" fillcolor=red];
+        }
+        subgraph cluster_52 {
+            color=blue
+            140 [label="Enter init block" style="filled" fillcolor=red];
+            subgraph cluster_53 {
+                color=blue
+                142 [label="Enter block"];
+                143 [label="Access variable R|<local>/a2|"];
+                144 [label="Function call: R|<local>/a2|.R|kotlin/Any.toString|()"];
+                145 [label="Const: String(b2)"];
+                146 [label="Assignment: R|/LLL.b2|"];
+                147 [label="Exit block"];
+            }
+            141 [label="Exit init block" style="filled" fillcolor=red];
+        }
+        155 [label="Exit class LLL" style="filled" fillcolor=red];
+    }
+    154 -> {125} [color=green];
+    125 -> {127};
+    126 -> {134} [color=green];
+    127 -> {126};
+    123 -> {124};
+    134 -> {135};
+    135 -> {138} [color=green];
+    128 -> {130};
+    130 -> {131};
+    131 -> {132};
+    132 -> {129};
+    132 -> {133} [style=dotted];
+    133 -> {129} [style=dotted];
+    138 -> {139};
+    139 -> {140} [color=green];
+    136 -> {137};
+    140 -> {142};
+    141 -> {155} [color=green];
+    142 -> {143};
+    143 -> {144};
+    144 -> {145};
+    145 -> {146};
+    146 -> {147};
+    147 -> {141};
+
 }

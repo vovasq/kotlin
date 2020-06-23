@@ -1,0 +1,68 @@
+FILE: branching.kt
+    public final class A : R|kotlin/Any| {
+        public constructor(): R|A| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val p1: R|kotlin/Boolean| = Boolean(true)
+            public get(): R|kotlin/Boolean|
+
+        public final val p2: R|kotlin/Boolean| = Boolean(false)
+            public get(): R|kotlin/Boolean|
+
+        public final val p3: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+        public final val p4: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+        public final val p5: R|kotlin/Any|
+            public get(): R|kotlin/Any|
+
+        public final val p6: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+        public final val p7: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+        init {
+            when () {
+                this@R|/A|.R|/A.p1| && this@R|/A|.R|/A.p2| || this@R|/A|.R|/A.p2| ->  {
+                    this@R|/A|.R|/A.p3| = String(if)
+                }
+                else ->  {
+                    this@R|/A|.R|/A.p3| = String(else)
+                }
+            }
+
+            this@R|/A|.R|/A.p3|.R|kotlin/String.length|
+            when () {
+                this@R|/A|.R|/A.p1| && this@R|/A|.R|/A.p2| || this@R|/A|.R|/A.p2| ->  {
+                    this@R|/A|.R|/A.p4| = String(daas)
+                }
+            }
+
+            this@R|/A|.R|/A.p4|.R|kotlin/String.length|
+            this@R|/A|.R|/A.p5| = Q|kotlin/Short|
+            this@R|/A|.R|/A.p6| = String(p6 str)
+            this@R|/A|.R|/A.call|()
+            while(this@R|/A|.R|/A.p1|) {
+                this@R|/A|.R|/A.p7| = String()
+            }
+
+            this@R|/A|.R|/A.p7|.R|kotlin/String.length|
+        }
+
+        public final fun call(): R|kotlin/Unit| {
+            when () {
+                this@R|/A|.R|/A.p1| && this@R|/A|.R|/A.p2| || this@R|/A|.R|/A.p2| ->  {
+                }
+                else ->  {
+                    this@R|/A|.R|/A.p3| = String(else)
+                }
+            }
+
+            this@R|/A|.R|/A.p6|.R|kotlin/String.length|
+        }
+
+    }

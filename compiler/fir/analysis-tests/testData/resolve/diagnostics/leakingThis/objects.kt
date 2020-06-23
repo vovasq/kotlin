@@ -1,19 +1,25 @@
 // !DUMP_CFG
 
-class Q {
+open class Base{
 
-    private val k = {
-        SUPER_QUALIFIER.call()
-    }
-
-    private val SUPER_QUALIFIER = object : I {
+    protected val SUPER_QUALIFIER = object : I {
         override val i1: String?
             get() = "da"
 
-        override fun call() {
+        override fun call(): String {
             val s = "s"
             s.length
+            return s
         }
+    }
+}
+
+class Q : Base(){
+
+    private val k = k()
+
+    fun k() : String{
+        return SUPER_QUALIFIER.call()
     }
 
 }
@@ -21,7 +27,7 @@ class Q {
 interface I {
     val i1: String?
 
-    fun call()
+    fun call():String
 
     fun isOk() = false
 

@@ -31,9 +31,6 @@ internal class InitContextAnalyzer(
     private val maxSuperTypesResolved: Int
 ) {
 
-    private val initializedProperties = mutableSetOf<FirVariableSymbol<*>>()
-    private val reportedProperties = mutableSetOf<FirVariableSymbol<*>>()
-
     private var callResolved: Int = 0
     private var superTypesResolved: Int = 0
 
@@ -98,13 +95,84 @@ internal class InitContextAnalyzer(
             )
     }
 
+    private class BranchInitContext(
+        initializedProperties: MutableSet<FirVariableSymbol<*>>,
+        reportedProperties: MutableSet<FirVariableSymbol<*>>
+    ) {
+        val initializedProperties = mutableSetOf<FirVariableSymbol<*>>()
+        val reportedProperties = mutableSetOf<FirVariableSymbol<*>>()
+
+        init {
+            this.initializedProperties.addAll(initializedProperties)
+            this.reportedProperties.addAll(reportedProperties)
+        }
+    }
+
+    private fun BranchInitContext.merge(branchInitContext: BranchInitContext): BranchInitContext =
+        BranchInitContext(
+            initializedProperties.intersect(branchInitContext.initializedProperties) as MutableSet<FirVariableSymbol<*>>,
+            reportedProperties.intersect(branchInitContext.reportedProperties) as MutableSet<FirVariableSymbol<*>>
+        )
+
+    private var mainBranchContext = BranchInitContext(mutableSetOf(), mutableSetOf())
+
+    private val stackBranchesContextToMerge = ArrayDeque<ArrayDeque<BranchInitContext>>()
+    private val stackBranchesContext = ArrayDeque<ArrayDeque<BranchInitContext>>()
+    private fun checkAndUpdateBranch(node: CFGNode<*>) {
+
+        when (node) {
+            is WhenEnterNode -> {
+                stackBranchesContextToMerge.addFirst(ArrayDeque())
+                stackBranchesContext.addFirst(ArrayDeque())
+            }
+            is LoopEnterNode -> {
+                val stack = ArrayDeque<BranchInitContext>()
+                stack.addFirst(mainBranchContext)
+                stackBranchesContextToMerge.addFirst(stack)
+                mainBranchContext = BranchInitContext(mainBranchContext.initializedProperties, mainBranchContext.reportedProperties)
+            }
+            is WhenBranchResultExitNode -> {
+                if(stackBranchesContextToMerge.size > 0)
+                    stackBranchesContextToMerge.first().addFirst(mainBranchContext)
+                mainBranchContext = stackBranchesContext.first().removeFirst()
+            }
+            is LoopBlockExitNode -> {
+                val currentStack = stackBranchesContextToMerge.first()
+                while (currentStack.size > 0) {
+                    mainBranchContext = currentStack.removeFirst().merge(mainBranchContext)
+                }
+                stackBranchesContextToMerge.removeFirst()
+            }
+            is WhenExitNode -> {
+                val currentStack = stackBranchesContextToMerge.first()
+                stackBranchesContextToMerge.first().addFirst(mainBranchContext)
+                while (currentStack.size > 1) {
+                    mainBranchContext = currentStack.first().merge(currentStack.removeFirst())
+                }
+                stackBranchesContextToMerge.removeFirst()
+            }
+            else -> {
+                if (
+                    node is WhenBranchConditionEnterNode ||
+                    node is WhenBranchResultEnterNode ||
+                    node is WhenSyntheticElseBranchNode
+                ) {
+                    stackBranchesContext.first().addFirst(mainBranchContext)
+                    mainBranchContext = BranchInitContext(mainBranchContext.initializedProperties, mainBranchContext.reportedProperties)
+                }
+
+            }
+        }
+    }
+
     internal fun analyze(node: CFGNode<*>, curInitContext: ClassInitContext) {
         val contextNode = curInitContext.initContextNodes[node] ?: return
+        checkAndUpdateBranch(node)
         when (contextNode.nodeType) {
             ContextNodeType.ASSIGNMENT_OR_INITIALIZER -> {
                 if (!contextNode.isLambdaOrGetter() && contextNode.isSuccessfullyInitNode()) {
                     contextNode.confirmInitForCandidate()
-                    initializedProperties.add(contextNode.initCandidate)
+                    mainBranchContext.initializedProperties.add(contextNode.initCandidate)
                 }
             }
             ContextNodeType.PROPERTY_QUALIFIED_ACCESS -> {
@@ -146,7 +214,7 @@ internal class InitContextAnalyzer(
         if (contextNode.nodeType == ContextNodeType.PROPERTY_QUALIFIED_ACCESS) {
             if (contextNode.isSuccessfullyInitNode()) {
                 contextNode.confirmInitForCandidate()
-                initializedProperties.add(contextNode.firstAccessedProperty)
+                mainBranchContext.initializedProperties.add(contextNode.firstAccessedProperty)
             }
         }
         //        } catch (e: Exception) {
@@ -170,17 +238,17 @@ internal class InitContextAnalyzer(
     private fun InitContextNode.checkIfPropertyAccessOk(): Boolean {
         fun report(): Boolean {
             reporter.report(cfgNode.fir.source)
-            reportedProperties.add(firstAccessedProperty)
+            mainBranchContext.reportedProperties.add(firstAccessedProperty)
             return false
         }
         if (firstAccessedProperty.fir.getter != null && firstAccessedProperty.fir.getter!!.isNotEmpty
-            && firstAccessedProperty !in initializedProperties && firstAccessedProperty !in reportedProperties
+            && firstAccessedProperty !in mainBranchContext.initializedProperties && firstAccessedProperty !in mainBranchContext.reportedProperties
         ) {
             resolveCallOrPropertyGetter(this, initContext)
         }
         if (isPropertyOfSuperType()) {
-            if (firstAccessedProperty.callableId.callableName.asString() !in initializedProperties.map { it.callableId.callableName.asString() }
-                && firstAccessedProperty.callableId.callableName.asString() !in reportedProperties.map { it.callableId.callableName.asString() }
+            if (firstAccessedProperty.callableId.callableName.asString() !in mainBranchContext.initializedProperties.map { it.callableId.callableName.asString() }
+                && firstAccessedProperty.callableId.callableName.asString() !in mainBranchContext.reportedProperties.map { it.callableId.callableName.asString() }
             ) {
                 println(
                     """SUPER CASE: 
@@ -189,21 +257,21 @@ internal class InitContextAnalyzer(
                     initContext superClasses = ${initContext.superTypesInitContexts?.map { it.classId.relativeClassName }},
                     property class = ${firstAccessedProperty.callableId.classId?.relativeClassName},
                     leak in: ${firstAccessedProperty.callableId.callableName},
-                    inited props: ${initializedProperties.map { it.callableId.callableName }},
-                    reported: ${reportedProperties.map { it.callableId.callableName }}
+                    inited props: ${mainBranchContext.initializedProperties.map { it.callableId.callableName }},
+                    reported: ${mainBranchContext.reportedProperties.map { it.callableId.callableName }}
                  """
                 )
                 if (firstAccessedProperty !in initContext.abstractProperties)
                     return report()
             }
-        } else if (firstAccessedProperty !in initializedProperties && firstAccessedProperty !in reportedProperties) {
+        } else if (firstAccessedProperty !in mainBranchContext.initializedProperties && firstAccessedProperty !in mainBranchContext.reportedProperties) {
             println(
                 """BASE CASE: 
                 file = ${session.firProvider.getFirCallableContainerFile(firstAccessedProperty)?.name},
                 class = ${initContext.classId.relativeClassName},
                 leak in: ${firstAccessedProperty.callableId.callableName},
-                inited props: ${initializedProperties.map { it.callableId.callableName }},
-                reported: ${reportedProperties.map { it.callableId.callableName }}
+                inited props: ${mainBranchContext.initializedProperties.map { it.callableId.callableName }},
+                reported: ${mainBranchContext.reportedProperties.map { it.callableId.callableName }}
             """
             )
             if (firstAccessedProperty !in initContext.abstractProperties)
@@ -227,9 +295,9 @@ internal class InitContextAnalyzer(
     private fun InitContextNode.isSuccessfullyInitNode(): Boolean =
         affectingNodes.all {
             it.nodeType != ContextNodeType.PROPERTY_QUALIFIED_ACCESS
-                    ||  (it.nodeType == ContextNodeType.PROPERTY_QUALIFIED_ACCESS
+                    || (it.nodeType == ContextNodeType.PROPERTY_QUALIFIED_ACCESS
                     && it.checkIfPropertyAccessOk()
-                    && initializedProperties.contains(it.firstAccessedProperty))
+                    && mainBranchContext.initializedProperties.contains(it.firstAccessedProperty))
 //                    && it.firstAccessedProperty.callableId.classId == classId // not fact
 //                    && initializedProperties.contains(it.firstAccessedProperty))
         }
