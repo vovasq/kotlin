@@ -15,7 +15,6 @@ import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.resolve.dfa.cfg.*
 import org.jetbrains.kotlin.fir.resolve.dfa.controlFlowGraph
-import org.jetbrains.kotlin.fir.resolve.firProvider
 import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirVariableSymbol
 import org.jetbrains.kotlin.name.ClassId
@@ -132,7 +131,7 @@ internal class InitContextAnalyzer(
                 mainBranchContext = BranchInitContext(mainBranchContext.initializedProperties, mainBranchContext.reportedProperties)
             }
             is WhenBranchResultExitNode -> {
-                if(stackBranchesContextToMerge.size > 0)
+                if (stackBranchesContextToMerge.size > 0)
                     stackBranchesContextToMerge.first().addFirst(mainBranchContext)
                 mainBranchContext = stackBranchesContext.first().removeFirst()
             }
@@ -184,7 +183,6 @@ internal class InitContextAnalyzer(
             }
             ContextNodeType.RESOLVABLE_THIS_RECEIVER_CALL, ContextNodeType.RESOLVABLE_CALL -> {
                 if (callResolved < maxCallResolved) {
-                    callResolved += 1
                     resolveCallOrPropertyGetter(contextNode, curInitContext)
                 }
             }
@@ -193,36 +191,36 @@ internal class InitContextAnalyzer(
     }
 
     private fun resolveCallOrPropertyGetter(contextNode: InitContextNode, curInitContext: ClassInitContext) {
-//        try { TODO: uncomment after all tests
-
-        val overrideCall = initContext.overrideFunctions?.get(contextNode.callableName)
-        var callableCfg = contextNode.callableCFG ?: return
-        var callableSymbol = contextNode.callableSymbol ?: return
-
-        if (overrideCall != null) {
-            callableCfg = overrideCall.controlFlowGraphReference.controlFlowGraph ?: return
-            callableSymbol = overrideCall.symbol
-        }
-
-        if (resolvedCalls.add(callableSymbol)) {
-            val callableBodyVisitor = ForwardCfgVisitor(classId, curInitContext.anonymousFunctionsContext)
-            callableCfg.traverseForwardWithoutLoops(callableBodyVisitor, curInitContext)
-            curInitContext.initContextNodes.putAll(callableBodyVisitor.initContextNodes)
-            contextNode.affectingNodes.addAll(callableBodyVisitor.initContextNodes.values)
-        }
-        callableCfg.traverseForwardWithoutLoops(LightCfgVisitor(), curInitContext, analyze = this::analyze)
-        if (contextNode.nodeType == ContextNodeType.PROPERTY_QUALIFIED_ACCESS) {
-            if (contextNode.isSuccessfullyInitNode()) {
-                contextNode.confirmInitForCandidate()
-                mainBranchContext.initializedProperties.add(contextNode.firstAccessedProperty)
+        try {
+            if (callResolved > maxCallResolved) {
+                return
             }
-        }
-        //        } catch (e: Exception) {
-//        }
+            callResolved += 1
+            val overrideCall = initContext.overrideFunctions?.get(contextNode.callableName)
+            var callableCfg = contextNode.callableCFG ?: return
+            var callableSymbol = contextNode.callableSymbol ?: return
 
-//        lazy{
-//          print("as")
-//        }
+            if (overrideCall != null) {
+                callableCfg = overrideCall.controlFlowGraphReference.controlFlowGraph ?: return
+                callableSymbol = overrideCall.symbol
+            }
+
+            if (resolvedCalls.add(callableSymbol)) {
+                val callableBodyVisitor = ForwardCfgVisitor(classId, curInitContext.anonymousFunctionsContext)
+                callableCfg.traverseForwardWithoutLoops(callableBodyVisitor, curInitContext)
+                curInitContext.initContextNodes.putAll(callableBodyVisitor.initContextNodes)
+                contextNode.affectingNodes.addAll(callableBodyVisitor.initContextNodes.values)
+            }
+            callableCfg.traverseForwardWithoutLoops(LightCfgVisitor(), curInitContext, analyze = this::analyze)
+            if (contextNode.nodeType == ContextNodeType.PROPERTY_QUALIFIED_ACCESS) {
+                if (contextNode.isSuccessfullyInitNode()) {
+                    contextNode.confirmInitForCandidate()
+                    mainBranchContext.initializedProperties.add(contextNode.firstAccessedProperty)
+                }
+            }
+        } catch (e: Exception) {
+        }
+
     }
 
     private fun DiagnosticReporter.report(source: FirSourceElement?) {
@@ -250,30 +248,10 @@ internal class InitContextAnalyzer(
             if (firstAccessedProperty.callableId.callableName.asString() !in mainBranchContext.initializedProperties.map { it.callableId.callableName.asString() }
                 && firstAccessedProperty.callableId.callableName.asString() !in mainBranchContext.reportedProperties.map { it.callableId.callableName.asString() }
             ) {
-                println(
-                    """SUPER CASE: 
-                    file = ${session.firProvider.getFirCallableContainerFile(firstAccessedProperty)?.name},
-                    initContext class = ${initContext.classId.relativeClassName},
-                    initContext superClasses = ${initContext.superTypesInitContexts?.map { it.classId.relativeClassName }},
-                    property class = ${firstAccessedProperty.callableId.classId?.relativeClassName},
-                    leak in: ${firstAccessedProperty.callableId.callableName},
-                    inited props: ${mainBranchContext.initializedProperties.map { it.callableId.callableName }},
-                    reported: ${mainBranchContext.reportedProperties.map { it.callableId.callableName }}
-                 """
-                )
                 if (firstAccessedProperty !in initContext.abstractProperties)
                     return report()
             }
         } else if (firstAccessedProperty !in mainBranchContext.initializedProperties && firstAccessedProperty !in mainBranchContext.reportedProperties) {
-            println(
-                """BASE CASE: 
-                file = ${session.firProvider.getFirCallableContainerFile(firstAccessedProperty)?.name},
-                class = ${initContext.classId.relativeClassName},
-                leak in: ${firstAccessedProperty.callableId.callableName},
-                inited props: ${mainBranchContext.initializedProperties.map { it.callableId.callableName }},
-                reported: ${mainBranchContext.reportedProperties.map { it.callableId.callableName }}
-            """
-            )
             if (firstAccessedProperty !in initContext.abstractProperties)
                 return report()
         }
@@ -298,8 +276,6 @@ internal class InitContextAnalyzer(
                     || (it.nodeType == ContextNodeType.PROPERTY_QUALIFIED_ACCESS
                     && it.checkIfPropertyAccessOk()
                     && mainBranchContext.initializedProperties.contains(it.firstAccessedProperty))
-//                    && it.firstAccessedProperty.callableId.classId == classId // not fact
-//                    && initializedProperties.contains(it.firstAccessedProperty))
         }
 
     private val InitContextNode.callableCFG: ControlFlowGraph?
